@@ -1,4 +1,4 @@
-package de.uni.mannheim.simile.de.uni.mannheim.simile.controllers;
+package de.uni.mannheim.simile.controllers;
 
 import org.junit.Before;
 import org.junit.Test;
