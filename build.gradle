@@ -24,13 +24,19 @@ targetCompatibility = 1.8
 
 repositories {
 	mavenCentral()
+	flatDir {
+		dirs 'libs'
+	}
 }
-
 
 dependencies {
 	compile('org.springframework.boot:spring-boot-starter-data-rest')
 	compile('org.springframework.boot:spring-boot-starter-jersey')
 	compile('org.springframework.boot:spring-boot-starter-web')
+	compile files('libs/socora-engine-client-0.0.1-SNAPSHOT.jar')
+	compile files('libs/socora-engine-core-0.0.1-SNAPSHOT.jar')
+	compile group: 'com.github.javaparser', name: 'javaparser-core', version: '3.0.0-RC.4'
+	compile group: 'com.google.guava', name: 'guava', version: '20.0'
 	runtime('org.springframework.boot:spring-boot-devtools')
 	compileOnly('org.projectlombok:lombok')
 	testCompile('org.springframework.boot:spring-boot-starter-test')
