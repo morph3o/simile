@@ -1,13 +1,22 @@
 package de.uni.mannheim.simile.services;
 
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 
 import java.io.File;
 
 @RequiredArgsConstructor
 public class DirectoryExplorer {
+	@Setter
 	private final FileHandler fileHandler;
+	@Setter
 	private final Filter filter;
+	@Setter
+	private File projectDir;
+
+	public void explore() {
+		explore(0, "", this.projectDir);
+	}
 
 	public void explore(File root) {
 		explore(0, "", root);
@@ -24,4 +33,5 @@ public class DirectoryExplorer {
 			}
 		}
 	}
+
 }

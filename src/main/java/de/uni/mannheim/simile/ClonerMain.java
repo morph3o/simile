@@ -1,9 +1,5 @@
 package de.uni.mannheim.simile;
 
-import com.github.javaparser.JavaParser;
-import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
-import com.google.common.base.Strings;
 import com.merobase.socora.engine.index.repository.candidate.CandidateDocument;
 import com.merobase.socora.engine.index.repository.candidate.CandidateListResult;
 import com.merobase.socora.engine.search.*;
@@ -11,6 +7,7 @@ import com.merobase.socora.engine.search.filter.Filters;
 import com.merobase.socora.engine.search.ranking.Rankings;
 import de.uni.mannheim.simile.services.Cloner;
 import de.uni.mannheim.simile.services.DirectoryExplorer;
+import de.uni.mannheim.simile.services.JavaClassFilter;
 import de.uni.mannheim.simile.services.JavaClassHandler;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
@@ -38,29 +35,6 @@ public class ClonerMain {
 	// --
 	private static String MY_JOB_ID = "0508e01e-27f4-4488-8b55-4a7d01832e5d";
 
-	static final ArrayList<String> methods = new ArrayList<String>();
-
-	public static void listMethods(File projectDir) {
-		new DirectoryExplorer(new JavaClassHandler(), (level, path, file) -> {
-			System.out.println(path);
-			System.out.println(Strings.repeat("=", path.length()));
-			try {
-				new VoidVisitorAdapter<Object>() {
-					@Override
-					public void visit(MethodDeclaration n, Object arg) {
-						super.visit(n, arg);
-						System.out.println(String.format("L[%s] - %s", n.getBegin().get(), n.getDeclarationAsString()));
-						methods.add(n.getDeclarationAsString());
-					}
-				}.visit(JavaParser.parse(file), null);
-				System.out.println(); // empty line
-			} catch (IOException e) {
-				new RuntimeException(e);
-			}
-			return true;
-		}).explore(projectDir);
-	}
-
 	public static void searchComponent(String method) throws IOException {
 		// create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
@@ -79,8 +53,8 @@ public class ClonerMain {
 		queryParams.setRows(maxResults);
 
 		// inclusions
-		queryParams.setArtifactInformation(true/* maven metadata */);
-		queryParams.setContent(true/* source code */);
+		queryParams.setArtifactInformation(true);
+		queryParams.setContent(true);
 
 		// FILTERS
 		queryParams.setFilters(Arrays.asList(Filters.HASH_CODE_CLONE_FILTER, Filters.NO_ABSTRACT_CLASS_FILTER,
@@ -123,9 +97,12 @@ public class ClonerMain {
 		cloner.cloneRepository();
 
 		File projectDir = new File(String.format("%s/src", FOLDER));
-		listMethods(projectDir);
+		JavaClassHandler jch = new JavaClassHandler();
+		DirectoryExplorer dirExplorer = new DirectoryExplorer(jch, new JavaClassFilter());
+		dirExplorer.explore(projectDir);
 
-		searchComponent(methods.get(0));
+		System.out.println(jch.getMethods().get(0));
+		searchComponent(jch.getMethods().get(0));
 	}
 
 	/**
@@ -140,7 +117,7 @@ public class ClonerMain {
 	 *            true if partial order should be returned (disables strict
 	 *            order!). Candidates in non-distinguishable sets possess the
 	 *            same ranks.
-	 * @return rank for given {@link CandidateItem} based on passed
+	 * @return rank for given {@link } based on passed
 	 *         CandidateRankingStrategy
 	 */
 	public static int getRank(Map<String, Double> ranking, String candidateRankingStrategy, boolean partialOrder) {
