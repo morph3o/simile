@@ -7,9 +7,7 @@ import java.io.File;
 
 @RequiredArgsConstructor
 public class DirectoryExplorer {
-	@Setter
 	private final FileHandler fileHandler;
-	@Setter
 	private final Filter filter;
 	@Setter
 	private File projectDir;
