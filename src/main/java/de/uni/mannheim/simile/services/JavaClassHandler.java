@@ -16,6 +16,8 @@ public class JavaClassHandler implements FileHandler {
 
 	@Getter
 	private List<String> methods = new ArrayList<>();
+	@Getter
+	private List<String> testClasses = new ArrayList<>();
 
 	@Override
 	public void handle(int level, String path, File file) {
@@ -25,6 +27,7 @@ public class JavaClassHandler implements FileHandler {
 			JavaClassVisitor jcv = new JavaClassVisitor();
 			jcv.visit(JavaParser.parse(file), null);
 			jcv.getMethods().forEach(method -> methods.add(this.getMQLNotation(jcv.getClassObj().getNameAsString(), method.getNameAsString(), method.getParameters(), method.getType().toString())));
+			testClasses.addAll(jcv.getTestClasses());
 			System.out.println();
 		} catch (IOException e) {
 			new RuntimeException(e);

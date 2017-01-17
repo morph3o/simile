@@ -14,11 +14,16 @@ public class JavaClassVisitor extends VoidVisitorAdapter {
 	private ClassOrInterfaceDeclaration classObj;
 	@Getter
 	private List<MethodDeclaration> methods = new ArrayList<>();
+	@Getter
+	private List<String> testClasses = new ArrayList<>();
 
 	@Override
 	public void visit(ClassOrInterfaceDeclaration n, Object arg) {
 		super.visit(n, arg);
 		this.classObj = n;
+		if(n.toString().contains("@Test")) {
+			testClasses.add(n.toString());
+		}
 	}
 
 	@Override
