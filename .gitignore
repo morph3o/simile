@@ -34,14 +34,10 @@ nbdist/
 
 # Package Files #
 *.jar
+!libs/socora-engine-client-0.0.1-SNAPSHOT.jar
+!libs/socora-engine-core-0.0.1-SNAPSHOT.jar
 *.war
 *.ear
-
-# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
-hs_err_pid*
-### Gradle template
-.gradle
-/build/
 
 # Ignore Gradle GUI config
 gradle-app.setting
