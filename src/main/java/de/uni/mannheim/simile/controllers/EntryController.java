@@ -1,5 +1,6 @@
 package de.uni.mannheim.simile.controllers;
 
+import cool.graph.cuid.Cuid;
 import de.uni.mannheim.simile.Simile;
 import de.uni.mannheim.simile.model.Message;
 import org.slf4j.Logger;
@@ -32,7 +33,7 @@ public class EntryController {
 			return ResponseEntity.badRequest().body(validateRequest(repo, email).get());
 		} else {
 			LOG.debug("The request is valid. Request -> repo: %s - branch: %s - email: %s", repo, branch, email);
-			//simile.searchForComponents(repo, branch, "projectDir");
+			simile.searchForComponents(repo, branch, Cuid.createCuid());
 			return ResponseEntity.ok(new Message("Repository set successfully", 200));
 		}
 	}
