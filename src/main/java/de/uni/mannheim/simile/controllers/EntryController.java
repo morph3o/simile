@@ -1,5 +1,6 @@
 package de.uni.mannheim.simile.controllers;
 
+import com.sparkpost.exception.SparkPostException;
 import cool.graph.cuid.Cuid;
 import de.uni.mannheim.simile.Simile;
 import de.uni.mannheim.simile.model.Message;
@@ -27,7 +28,7 @@ public class EntryController {
 	@RequestMapping(name = "/repository", method = RequestMethod.POST)
 	public ResponseEntity<?> setupRepository(@RequestParam(name = "repo") String repo,
 																				@RequestParam(name = "branch", defaultValue = "master", required = false) String branch,
-																				@RequestParam(name = "email") String email) throws IOException, InterruptedException {
+																				@RequestParam(name = "email") String email) throws IOException, InterruptedException, SparkPostException {
 		if(validateRequest(repo, email).isPresent()) {
 			LOG.debug("The request is not valid. Request -> repo: %s - branch: %s - email: %s", repo, branch, email);
 			return ResponseEntity.badRequest().body(validateRequest(repo, email).get());

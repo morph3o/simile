@@ -1,15 +1,19 @@
 package de.uni.mannheim.simile.services;
 
+import com.google.common.base.Strings;
 import com.merobase.socora.engine.index.repository.candidate.CandidateDocument;
 import com.merobase.socora.engine.index.repository.candidate.CandidateListResult;
 import com.merobase.socora.engine.search.*;
 import com.merobase.socora.engine.search.filter.Filters;
 import com.merobase.socora.engine.search.ranking.Rankings;
+import com.sparkpost.exception.SparkPostException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -17,6 +21,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 
+@Service
 public class SocoraRequester {
 	public static String TEST_DRIVEN_SEARCH = "TEST_DRIVEN_SEARCH";
 	public static String INTERFACE_DRIVEN_SEARCH = "INTERFACE_DRIVEN_SEARCH";
@@ -29,7 +34,10 @@ public class SocoraRequester {
 	private static String user = "socora";
 	private static String pass = "d3fudj983r223dhs23";
 
-	public void searchComponent(String query, String searchType) throws IOException, InterruptedException {
+	@Autowired
+	private EmailSender emailSender;
+
+	public void searchComponent(String query, String searchType) throws IOException, InterruptedException, SparkPostException {
 		Validate.notBlank(query, "Query parameter is required and cannot be blank");
 		if (StringUtils.compare(searchType, INTERFACE_DRIVEN_SEARCH) == 0 ||
 			StringUtils.compare(searchType, KEYWORD_SEARCH) == 0 ||
@@ -98,7 +106,7 @@ public class SocoraRequester {
 		}
 	}
 
-	private void textualSearchComponent(String method) throws IOException {
+	private void textualSearchComponent(String method) throws IOException, SparkPostException {
 		// create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
@@ -141,6 +149,11 @@ public class SocoraRequester {
 
 		CandidateListResult result = response.getCandidates();
 
+		StringBuffer strBuilder = new StringBuffer();
+		strBuilder.append("Result from SOCORA \n");
+		strBuilder.append(Strings.repeat("=", "Result from SOCORA".length()));
+		strBuilder.append("\n");
+
 		// all rows
 		result.getCandidates().stream().sorted(new SocoraRequester.SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
 			LOG.debug("Rank " + getRank(doc.getRanking(), queryParams.getRankingStrategy(), false) + "/"
@@ -149,9 +162,13 @@ public class SocoraRequester {
 				+ doc.getSafeRankingCriteria().get(queryParams.getRankingStrategy()) + " . Metrics: "
 				+ prettify(doc.getMetrics(), queryParams.getRankingCriteria()) + ". Artifact Info = "
 				+ ToStringBuilder.reflectionToString(doc.getArtifactInfo()));
+			strBuilder.append(String.format("- %s \n", ToStringBuilder.reflectionToString(doc.getArtifactInfo())));
 		});
-
+		strBuilder.append(Strings.repeat("=", "Result from SOCORA".length()));
 		LOG.debug("Total size " + result.getTotal());
+		String[] recipients = {"pdivasto@gmail.com"};
+
+		emailSender.sendEmail(recipients, strBuilder.toString());
 	}
 
 	/**

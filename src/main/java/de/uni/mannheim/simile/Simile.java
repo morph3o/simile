@@ -1,7 +1,9 @@
 package de.uni.mannheim.simile;
 
 import com.google.common.base.Strings;
+import com.sparkpost.exception.SparkPostException;
 import de.uni.mannheim.simile.services.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
@@ -11,8 +13,11 @@ import java.io.IOException;
 @Service
 public class Simile {
 
+	@Autowired
+	private SocoraRequester socoraRequester;
+
 	@Async
-	public void searchForComponents(String repo, String branch, String folder) throws IOException, InterruptedException {
+	public void searchForComponents(String repo, String branch, String folder) throws IOException, InterruptedException, SparkPostException {
 		Cloner cloner = new Cloner(repo, branch, folder);
 
 		cloner.cloneRepository();
@@ -30,8 +35,8 @@ public class Simile {
 
 		System.out.println(String.format("Test class to search"));
 		System.out.println(Strings.repeat("=", "Test class to search".length()));
-		System.out.println(jch2.getTestClasses().get(1));
-		new SocoraRequester().searchComponent(jch2.getTestClasses().get(1), SocoraRequester.TEST_DRIVEN_SEARCH);
+		System.out.println(jch.getMethods().get(0));
+		socoraRequester.searchComponent("SocoraRequester(searchComponent(String,String):void;)", SocoraRequester.INTERFACE_DRIVEN_SEARCH);
 	}
 
 }
