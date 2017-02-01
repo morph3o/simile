@@ -25,46 +25,45 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile.services;
+package de.unimannheim.informatik.swt.simile.services;
 
-import com.github.javaparser.JavaParser;
-import com.github.javaparser.ast.NodeList;
-import com.github.javaparser.ast.body.Parameter;
-import com.google.common.base.Strings;
+import de.unimannheim.informatik.swt.simile.util.StreamGobbler;
 import lombok.Getter;
-import org.apache.commons.lang3.StringUtils;
+import lombok.RequiredArgsConstructor;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
-public class JavaClassHandler implements FileHandler {
+@RequiredArgsConstructor
+public class Cloner {
 
 	@Getter
-	private List<String> methods = new ArrayList<>();
+	private final String repo;
 	@Getter
-	private List<String> testClasses = new ArrayList<>();
+	private final String branch;
+	@Getter
+	private final String folder;
 
-	@Override
-	public void handle(int level, String path, File file) {
-		System.out.println(path);
-		System.out.println(Strings.repeat("=", path.length()));
+	public int cloneRepository() throws IOException {
+		int exitVal = 0;
 		try {
-			JavaClassVisitor jcv = new JavaClassVisitor();
-			jcv.visit(JavaParser.parse(file), null);
-			jcv.getMethods().forEach(method -> methods.add(this.getMQLNotation(jcv.getClassObj().getNameAsString(), method.getNameAsString(), method.getParameters(), method.getType().toString())));
-			testClasses.addAll(jcv.getTestClasses());
-			System.out.println();
-		} catch (IOException e) {
-			new RuntimeException(e);
+			String command = this.setCommand(repo, branch, folder);
+			Process p = Runtime.getRuntime().exec(command);
+			StreamGobbler errorGobbler = new StreamGobbler(p.getErrorStream(), "INFO");
+			errorGobbler.start();
+			exitVal = p.waitFor();
+			return exitVal;
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		return exitVal;
+	}
+
+	String setCommand(String repo, String branch, String folder) {
+		if(!branch.isEmpty()) {
+			return String.format("git clone %s --branch %s %s", repo, branch, folder);
+		} else {
+			return String.format("git clone %s %s", repo, folder);
 		}
 	}
 
-	private String getMQLNotation(String classname, String methodName, NodeList<Parameter> params, String returnType) {
-		List<String> paramTypes = new ArrayList<>();
-		params.forEach(param -> paramTypes.add(param.getType().toString()));
-		System.out.println(String.format("%s(%s(%s):%s;)", classname, methodName, StringUtils.join(paramTypes, ','), returnType));
-		return String.format("%s(%s(%s):%s;)", classname, methodName, StringUtils.join(paramTypes, ','), returnType);
-	}
 }

@@ -25,32 +25,48 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile;
+package de.unimannheim.informatik.swt.simile.services;
 
-import org.springframework.boot.SpringApplication;
-import org.springframework.boot.autoconfigure.SpringBootApplication;
-import org.springframework.scheduling.annotation.AsyncConfigurerSupport;
-import org.springframework.scheduling.annotation.EnableAsync;
-import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
+import org.junit.Before;
+import org.junit.Test;
 
-import java.util.concurrent.Executor;
+import java.io.IOException;
 
-@SpringBootApplication
-@EnableAsync
-public class SimileApplication extends AsyncConfigurerSupport {
+import static org.assertj.core.api.Assertions.*;
 
-	public static void main(String[] args) {
-		SpringApplication.run(SimileApplication.class, args);
+public class ClonerTests {
+
+	private static final String REPO = "https://github.com/morph3o/simile.git";
+	private static final String BRANCH = "master";
+	private static final String FOLDER = "project";
+
+	private Cloner cloner;
+
+	@Before
+	public void setUp(){
+		this.cloner = new Cloner(REPO, BRANCH, FOLDER);
 	}
 
-	@Override
-	public Executor getAsyncExecutor() {
-		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
-		executor.setCorePoolSize(2);
-		executor.setMaxPoolSize(2);
-		executor.setQueueCapacity(500);
-		executor.setThreadNamePrefix("SIMILE-");
-		executor.initialize();
-		return executor;
+	@Test
+	public void itShouldReturnStringWithRepoAndBranch() {
+		assertThat(this.cloner.getRepo()).isEqualTo(REPO);
+		assertThat(this.cloner.getBranch()).isEqualTo(BRANCH);
+		assertThat(this.cloner.getFolder()).isEqualTo(FOLDER);
 	}
+
+	@Test
+	public void itShouldSetCommandWithRepoAndBranch() {
+		assertThat(this.cloner.setCommand(REPO, BRANCH, FOLDER)).isEqualTo(String.format("git clone %s --branch %s %s", REPO, BRANCH, FOLDER));
+	}
+
+	@Test
+	public void itShouldSetCommandWithRepo() {
+		assertThat(this.cloner.setCommand(REPO, "", FOLDER)).isEqualTo(String.format("git clone %s %s", REPO, FOLDER));
+	}
+
+	@Test
+	public void itShouldCloneRepo() throws IOException {
+		assertThat(this.cloner.cloneRepository()).isEqualTo(0);
+	}
+
 }

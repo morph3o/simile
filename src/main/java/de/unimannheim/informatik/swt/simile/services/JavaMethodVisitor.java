@@ -25,45 +25,39 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile.services;
+package de.unimannheim.informatik.swt.simile.services;
 
-import de.uni.mannheim.simile.util.StreamGobbler;
+import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.MethodDeclaration;
+import com.github.javaparser.ast.body.Parameter;
+import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.StringUtils;
 
-import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
-@RequiredArgsConstructor
-public class Cloner {
+public class JavaMethodVisitor extends VoidVisitorAdapter {
 
 	@Getter
-	private final String repo;
+	private String name;
 	@Getter
-	private final String branch;
+	private String returnType;
 	@Getter
-	private final String folder;
+	private String parameterTypes;
+	private List<String> params = new ArrayList<>();
+	@Getter
+	private NodeList<Parameter> parameters;
 
-	public int cloneRepository() throws IOException {
-		int exitVal = 0;
-		try {
-			String command = this.setCommand(repo, branch, folder);
-			Process p = Runtime.getRuntime().exec(command);
-			StreamGobbler errorGobbler = new StreamGobbler(p.getErrorStream(), "INFO");
-			errorGobbler.start();
-			exitVal = p.waitFor();
-			return exitVal;
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-		return exitVal;
-	}
-
-	String setCommand(String repo, String branch, String folder) {
-		if(!branch.isEmpty()) {
-			return String.format("git clone %s --branch %s %s", repo, branch, folder);
-		} else {
-			return String.format("git clone %s %s", repo, folder);
-		}
+	@Override
+	public void visit(MethodDeclaration n, Object arg) {
+		super.visit(n, arg);
+		System.out.println(String.format("L[%s] - %s", n.getBegin().get(), n.getDeclarationAsString()));
+		this.name = n.getName().toString();
+		this.returnType = n.getType().toString();
+		n.getParameters().forEach(param -> params.add(param.getType().toString()));
+		parameterTypes = StringUtils.join(params, ',');
+		parameters = n.getParameters();
 	}
 
 }

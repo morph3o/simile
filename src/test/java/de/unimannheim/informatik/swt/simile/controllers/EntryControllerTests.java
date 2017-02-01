@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile.controllers;
+package de.unimannheim.informatik.swt.simile.controllers;
 
 import org.junit.Before;
 import org.junit.Test;

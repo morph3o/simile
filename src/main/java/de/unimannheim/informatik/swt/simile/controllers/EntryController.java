@@ -25,12 +25,12 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile.controllers;
+package de.unimannheim.informatik.swt.simile.controllers;
 
 import com.sparkpost.exception.SparkPostException;
 import cool.graph.cuid.Cuid;
-import de.uni.mannheim.simile.Simile;
-import de.uni.mannheim.simile.model.Message;
+import de.unimannheim.informatik.swt.simile.Simile;
+import de.unimannheim.informatik.swt.simile.model.Message;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;

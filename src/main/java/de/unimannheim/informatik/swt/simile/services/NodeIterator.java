@@ -25,39 +25,26 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile;
+package de.unimannheim.informatik.swt.simile.services;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.github.javaparser.ast.Node;
 
-public class ClonerMain {
+public class NodeIterator {
+	public interface NodeHandler {
+		boolean handle(Node node);
+	}
 
-	private static final Logger LOG = LoggerFactory.getLogger(ClonerMain.class);
+	private NodeHandler nodeHandler;
 
-	private static final String REPO = "https://github.com/morph3o/simile.git";
-	private static final String BRANCH = "master";
-	private static final String FOLDER = "project";
+	public NodeIterator(NodeHandler nodeHandler) {
+		this.nodeHandler = nodeHandler;
+	}
 
-	/*public static void main(String[] args) throws IOException, InterruptedException {
-		Cloner cloner = new Cloner(REPO, BRANCH, FOLDER);
-
-		cloner.cloneRepository();
-
-		File maintDir = new File(String.format("%s/src/main", FOLDER));
-		JavaClassHandler jch = new JavaClassHandler();
-		new DirectoryExplorer(jch, new JavaClassFilter()).explore(maintDir);
-
-		File testDir = new File(String.format("%s/src/test", FOLDER));
-		JavaClassHandler jch2 = new JavaClassHandler();
-		new DirectoryExplorer(jch2, new JavaClassFilter()).explore(testDir);
-
-		System.out.println(String.format("Methods found in project: %s", jch.getMethods().size()));
-		System.out.println(String.format("Test classes found in project: %s", jch2.getTestClasses().size()));
-
-		System.out.println(String.format("Test class to search"));
-		System.out.println(Strings.repeat("=", "Test class to search".length()));
-		System.out.println(jch2.getTestClasses().get(1));
-		new SocoraRequester().searchComponent(jch2.getTestClasses().get(1), SocoraRequester.TEST_DRIVEN_SEARCH);
-	}*/
-
+	public void explore(Node node) {
+		if (nodeHandler.handle(node)) {
+			for (Node child : node.getChildNodes()) {
+				explore(child);
+			}
+		}
+	}
 }

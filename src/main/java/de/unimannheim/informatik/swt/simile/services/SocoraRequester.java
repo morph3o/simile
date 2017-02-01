@@ -25,7 +25,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile.services;
+package de.unimannheim.informatik.swt.simile.services;
 
 import com.google.common.base.Strings;
 import com.merobase.socora.engine.index.repository.candidate.CandidateDocument;

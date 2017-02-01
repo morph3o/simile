@@ -25,26 +25,14 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-package de.uni.mannheim.simile.services;
+package de.unimannheim.informatik.swt.simile.model;
 
-import com.github.javaparser.ast.Node;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
 
-public class NodeIterator {
-	public interface NodeHandler {
-		boolean handle(Node node);
-	}
-
-	private NodeHandler nodeHandler;
-
-	public NodeIterator(NodeHandler nodeHandler) {
-		this.nodeHandler = nodeHandler;
-	}
-
-	public void explore(Node node) {
-		if (nodeHandler.handle(node)) {
-			for (Node child : node.getChildNodes()) {
-				explore(child);
-			}
-		}
-	}
+@RequiredArgsConstructor
+@Data
+public class Message {
+	private final String message;
+	private final int status;
 }
