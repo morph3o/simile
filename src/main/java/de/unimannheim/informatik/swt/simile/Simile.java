@@ -28,7 +28,6 @@
 package de.unimannheim.informatik.swt.simile;
 
 import com.google.common.base.Strings;
-import com.sparkpost.exception.SparkPostException;
 import de.unimannheim.informatik.swt.simile.services.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
@@ -44,7 +43,7 @@ public class Simile {
 	private SocoraRequester socoraRequester;
 
 	@Async
-	public void searchForComponents(String repo, String branch, String folder, String recipient) throws IOException, InterruptedException, SparkPostException {
+	public void searchForComponents(String repo, String branch, String folder, String recipient) throws IOException, InterruptedException {
 		Cloner cloner = new Cloner(repo, branch, folder);
 
 		cloner.cloneRepository();
