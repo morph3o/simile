@@ -33,7 +33,6 @@ import com.merobase.socora.engine.index.repository.candidate.CandidateListResult
 import com.merobase.socora.engine.search.*;
 import com.merobase.socora.engine.search.filter.Filters;
 import com.merobase.socora.engine.search.ranking.Rankings;
-import com.sparkpost.exception.SparkPostException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
@@ -65,7 +64,7 @@ public class SocoraRequester {
 	@Autowired
 	private EmailSender emailSender;
 
-	public void searchComponent(String query, String searchType, String recipient) throws IOException, InterruptedException, SparkPostException {
+	public void searchComponent(String query, String searchType, String recipient) throws IOException, InterruptedException {
 		Validate.notBlank(query, "Query parameter is required and cannot be blank");
 		if (StringUtils.compare(searchType, INTERFACE_DRIVEN_SEARCH) == 0 ||
 			StringUtils.compare(searchType, KEYWORD_SEARCH) == 0 ||
@@ -134,7 +133,7 @@ public class SocoraRequester {
 		}
 	}
 
-	private void textualSearchComponent(String method, String recipient) throws IOException, SparkPostException {
+	private void textualSearchComponent(String method, String recipient) throws IOException {
 		// create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
