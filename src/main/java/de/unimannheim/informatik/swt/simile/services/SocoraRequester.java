@@ -37,6 +37,7 @@ import com.sparkpost.exception.SparkPostException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.builder.ToStringBuilder;
+import org.apache.commons.lang3.text.StrBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,16 +65,16 @@ public class SocoraRequester {
 	@Autowired
 	private EmailSender emailSender;
 
-	public void searchComponent(String query, String searchType) throws IOException, InterruptedException, SparkPostException {
+	public void searchComponent(String query, String searchType, String recipient) throws IOException, InterruptedException, SparkPostException {
 		Validate.notBlank(query, "Query parameter is required and cannot be blank");
 		if (StringUtils.compare(searchType, INTERFACE_DRIVEN_SEARCH) == 0 ||
 			StringUtils.compare(searchType, KEYWORD_SEARCH) == 0 ||
 			StringUtils.isBlank(searchType)) {
-			this.textualSearchComponent(query);
+			this.textualSearchComponent(query, recipient);
 		} else if (StringUtils.compare(searchType, TEST_DRIVEN_SEARCH) == 0) {
 			this.testDrivenSearchComponent(query);
 		} else {
-			this.textualSearchComponent(query);
+			this.textualSearchComponent(query, recipient);
 		}
 	}
 
@@ -133,7 +134,7 @@ public class SocoraRequester {
 		}
 	}
 
-	private void textualSearchComponent(String method) throws IOException, SparkPostException {
+	private void textualSearchComponent(String method, String recipient) throws IOException, SparkPostException {
 		// create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
@@ -176,26 +177,43 @@ public class SocoraRequester {
 
 		CandidateListResult result = response.getCandidates();
 
-		StringBuffer strBuilder = new StringBuffer();
-		strBuilder.append("Result from SOCORA \n");
-		strBuilder.append(Strings.repeat("=", "Result from SOCORA".length()));
-		strBuilder.append("\n");
+		StrBuilder strBuilder = new StrBuilder();
+		strBuilder.appendln("Similar components - Textual search result");
+		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
 
 		// all rows
 		result.getCandidates().stream().sorted(new SocoraRequester.SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
-			LOG.debug("Rank " + getRank(doc.getRanking(), queryParams.getRankingStrategy(), false) + "/"
+			LOG.info("Rank " + getRank(doc.getRanking(), queryParams.getRankingStrategy(), false) + "/"
 				+ getRank(doc.getRanking(), queryParams.getRankingStrategy(), true) + ": " + doc.getFQName() + " "
 				+ doc.getUri() + ". Safe ranking criteria ? "
 				+ doc.getSafeRankingCriteria().get(queryParams.getRankingStrategy()) + " . Metrics: "
 				+ prettify(doc.getMetrics(), queryParams.getRankingCriteria()) + ". Artifact Info = "
 				+ ToStringBuilder.reflectionToString(doc.getArtifactInfo()));
-			strBuilder.append(String.format("- %s \n", ToStringBuilder.reflectionToString(doc.getArtifactInfo())));
-		});
-		strBuilder.append(Strings.repeat("=", "Result from SOCORA".length()));
-		LOG.debug("Total size " + result.getTotal());
-		String[] recipients = {"pdivasto@gmail.com"};
+			LOG.info(String.format("Component: %s", doc.getArtifactInfo().getName()));
+			LOG.info(String.format("\tFQ Name: %s", doc.getFQName()));
+			LOG.info(String.format("\tRank: %s/%s", getRank(doc.getRanking(), queryParams.getRankingStrategy(), false), getRank(doc.getRanking(), queryParams.getRankingStrategy(), true)));
+			LOG.info(String.format("\tMetrics:"));
+			LOG.info(String.format("\t\t%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
+			LOG.info(String.format("\tDetails: \n%s", doc.getArtifactInfo().getDescription()));
+			LOG.info(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
+			LOG.info(String.format("\tVersion: %s", doc.getVersion()));
 
-		emailSender.sendEmail(recipients, strBuilder.toString());
+			strBuilder.appendln(String.format("Component: %s", doc.getArtifactInfo().getName()));
+			strBuilder.appendln(String.format("\tFQ Name: %s", doc.getFQName()));
+			strBuilder.appendln(String.format("\tRank: %s/%s", getRank(doc.getRanking(), queryParams.getRankingStrategy(), false), getRank(doc.getRanking(), queryParams.getRankingStrategy(), true)));
+			strBuilder.appendln(String.format("\tMetrics:"));
+			strBuilder.appendln(String.format("\t\t%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
+			strBuilder.appendln(String.format("\tDetails:"));
+			strBuilder.appendln(String.format("\t%s", doc.getArtifactInfo().getDescription()));
+			strBuilder.appendln(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
+			strBuilder.appendln(String.format("\tVersion: %s", doc.getVersion()));
+
+			// strBuilder.append(String.format("- %s \n", ToStringBuilder.reflectionToString(doc.getArtifactInfo())));
+		});
+		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
+		LOG.debug("Total size " + result.getTotal());
+
+		emailSender.sendEmail(recipient, "Feedback from Simile - Textual Search", strBuilder.toString());
 	}
 
 	/**

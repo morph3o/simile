@@ -61,7 +61,7 @@ public class EntryController {
 			return ResponseEntity.badRequest().body(validateRequest(repo, email).get());
 		} else {
 			logger.debug("The request is valid. Request -> repo: %s - branch: %s - email: %s", repo, branch, email);
-			simile.searchForComponents(repo, branch, Cuid.createCuid());
+			simile.searchForComponents(repo, branch, Cuid.createCuid(), email);
 			return ResponseEntity.ok(new Message("Repository set successfully", 200));
 		}
 	}
