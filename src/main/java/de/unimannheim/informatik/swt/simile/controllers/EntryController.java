@@ -47,7 +47,7 @@ import java.util.regex.Pattern;
 @RestController
 public class EntryController {
 
-	private static final Logger LOG = LoggerFactory.getLogger(EntryController.class);
+	private static final Logger logger = LoggerFactory.getLogger(EntryController.class);
 
 	@Autowired
 	private Simile simile;
@@ -57,17 +57,17 @@ public class EntryController {
 																				@RequestParam(name = "branch", defaultValue = "master", required = false) String branch,
 																				@RequestParam(name = "email") String email) throws IOException, InterruptedException, SparkPostException {
 		if(validateRequest(repo, email).isPresent()) {
-			LOG.debug("The request is not valid. Request -> repo: %s - branch: %s - email: %s", repo, branch, email);
+			logger.debug("The request is not valid. Request -> repo: %s - branch: %s - email: %s", repo, branch, email);
 			return ResponseEntity.badRequest().body(validateRequest(repo, email).get());
 		} else {
-			LOG.debug("The request is valid. Request -> repo: %s - branch: %s - email: %s", repo, branch, email);
+			logger.debug("The request is valid. Request -> repo: %s - branch: %s - email: %s", repo, branch, email);
 			simile.searchForComponents(repo, branch, Cuid.createCuid());
 			return ResponseEntity.ok(new Message("Repository set successfully", 200));
 		}
 	}
 
 	private Optional<Message> validateRequest(String repo, String email) {
-		LOG.debug("Validating required parameters in request");
+		logger.debug("Validating required parameters in request");
 		StringBuilder str = new StringBuilder();
 		if(repo.isEmpty()) str.append("repo is required");
 		if(email.isEmpty()) str.append("email is required");
@@ -86,6 +86,7 @@ public class EntryController {
 	 * @return true if the git url is valid, otherwise false.
 	 * */
 	private boolean isValidGithubWebURL(String gitRepo) {
+		logger.debug("isValidGithubWebURL: gitRepo = %s", gitRepo);
 		final Pattern pattern = Pattern.compile("(http(s)?)(:(//)?)([\\w\\.@\\:/\\-~]+)(\\.git)?");
 		return pattern.matcher(gitRepo).matches();
 	}
@@ -99,6 +100,7 @@ public class EntryController {
 	 * @return true in case the email address is valid, otherwise false.
 	 * */
 	private boolean isValidEmail(String email) {
+		logger.debug("isValidEmail: email = %s", email);
 		final Pattern pattern = Pattern.compile("[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?");
 		return pattern.matcher(email).matches();
 	}
