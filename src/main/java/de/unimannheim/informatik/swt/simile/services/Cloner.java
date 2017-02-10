@@ -43,6 +43,11 @@ public class Cloner {
 	@Getter
 	private final String folder;
 
+	/**
+	 * Executes the command <code>git clone</code> with the values of
+	 * repo, branch and folder. It clones the repository of specific branch (default master)
+	 * in a specified folder.
+	 * */
 	public int cloneRepository() throws IOException {
 		int exitVal = 0;
 		try {
