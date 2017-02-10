@@ -29,6 +29,8 @@ package de.unimannheim.informatik.swt.simile;
 
 import com.google.common.base.Strings;
 import de.unimannheim.informatik.swt.simile.services.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -39,8 +41,14 @@ import java.io.IOException;
 @Service
 public class Simile {
 
+	private static final Logger logger = LoggerFactory.getLogger(Simile.class);
+
+	private final SocoraRequester socoraRequester;
+
 	@Autowired
-	private SocoraRequester socoraRequester;
+	public Simile(SocoraRequester socoraRequester) {
+		this.socoraRequester = socoraRequester;
+	}
 
 	@Async
 	public void searchForComponents(String repo, String branch, String folder, String recipient) throws IOException, InterruptedException {
@@ -56,13 +64,14 @@ public class Simile {
 		JavaClassHandler jch2 = new JavaClassHandler();
 		new DirectoryExplorer(jch2, new JavaClassFilter()).explore(testDir);
 
-		System.out.println(String.format("Methods found in project: %s", jch.getMethods().size()));
-		System.out.println(String.format("Test classes found in project: %s", jch2.getTestClasses().size()));
+		logger.info(String.format("Methods found in project: %s", jch.getMethods().size()));
+		logger.info(String.format("Test classes found in project: %s", jch2.getTestClasses().size()));
 
-		System.out.println(String.format("Test class to search"));
-		System.out.println(Strings.repeat("=", "Test class to search".length()));
-		System.out.println(jch.getMethods().get(0));
+		logger.info(String.format("Test class to search"));
+		logger.info(Strings.repeat("=", "Test class to search".length()));
+
 		socoraRequester.searchComponent(jch.getMethods().get(0), SocoraRequester.INTERFACE_DRIVEN_SEARCH, recipient);
+		socoraRequester.searchComponent(jch2.getTestClasses().get(0), SocoraRequester.TEST_DRIVEN_SEARCH, recipient);
 	}
 
 }
