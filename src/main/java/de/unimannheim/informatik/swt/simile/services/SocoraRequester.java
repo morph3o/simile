@@ -35,7 +35,6 @@ import com.merobase.socora.engine.search.filter.Filters;
 import com.merobase.socora.engine.search.ranking.Rankings;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
-import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.text.StrBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -43,10 +42,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class SocoraRequester {
@@ -118,19 +114,31 @@ public class SocoraRequester {
 
 		request.setTestDrivenSearch(Boolean.TRUE);
 
-		// Set ranking
-		queryParams.setRankingStrategy(Rankings.SINGLE_OBJECTIVE);
+		// set ranking criteria
+		queryParams.setRankingStrategy(Rankings.HYBRID_NON_DOMINATED_SORTING);
+		RankingCriterion fsCriterion = new RankingCriterion();
+		// FS dynamic
+		fsCriterion.setName("sf_instruction_leanness");
+		fsCriterion.setObjective(RankingCriterion.MAX);
+		// performance criterion
+		RankingCriterion performanceCriterion = new RankingCriterion();
+		performanceCriterion.setName("jmh_thrpt_score_mean");
+		performanceCriterion.setObjective(RankingCriterion.MAX);
+		// LCOM
+		RankingCriterion lcomCriterion = new RankingCriterion();
+		lcomCriterion.setName("entryClass_ckjm_ext_lcom3");
+		lcomCriterion.setObjective(RankingCriterion.MIN);
+		// Coupling
+		RankingCriterion couplingCriterion = new RankingCriterion();
+		couplingCriterion.setName("entryClass_ckjm_ext_ce");
+		couplingCriterion.setObjective(RankingCriterion.MIN);
 
-		// Set ranking criteria
-		List<RankingCriterion> rankingCriteria = Arrays.asList(
-			RankingCriterionBuilder
-				.rankingCriterion()
-				.withName("luceneScore")
-				.withObjective(RankingCriterion.MAX)
-				.build()
-		);
-
-		queryParams.setRankingCriteria(rankingCriteria);
+		queryParams.setRankingCriteria(Arrays.asList(
+			fsCriterion,
+			performanceCriterion,
+			lcomCriterion,
+			couplingCriterion
+		));
 
 		CandidateSearchResponse response = candidateSearchClient.search(request);
 
@@ -147,7 +155,7 @@ public class SocoraRequester {
 
 		// Once the search is FINISHED, we retrieve the result with the candidates.
 		if(jobStatus.getStatusType() == JobStatusType.FINISHED)
-			getTextualSearchResult(jobId, recipient);
+			getTestDrivenSearchResult(jobId, recipient);
 	}
 
 	/**
@@ -156,7 +164,7 @@ public class SocoraRequester {
 	 * @param jobId of the job to fetch the result.
 	 * @param recipient (email) to where we will send the result.
 	 * */
-	private void getTextualSearchResult(String jobId, String recipient) throws IOException {
+	private void getTestDrivenSearchResult(String jobId, String recipient) throws IOException {
 		// Create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
@@ -177,38 +185,39 @@ public class SocoraRequester {
 			Filters.FUNCTIONAL_SUFFICIENCY_FILTER
 		));
 
-		// Set ranking criteria
-		queryParams.setRankingStrategy(Rankings.SINGLE_OBJECTIVE);
+		// set ranking criteria
+		queryParams.setRankingStrategy(Rankings.HYBRID_NON_DOMINATED_SORTING);
+		RankingCriterion fsCriterion = new RankingCriterion();
+		// FS dynamic
+		fsCriterion.setName("sf_instruction_leanness");
+		fsCriterion.setObjective(RankingCriterion.MAX);
+		// performance criterion
+		RankingCriterion performanceCriterion = new RankingCriterion();
+		performanceCriterion.setName("jmh_thrpt_score_mean");
+		performanceCriterion.setObjective(RankingCriterion.MAX);
+		// LCOM
+		RankingCriterion lcomCriterion = new RankingCriterion();
+		lcomCriterion.setName("entryClass_ckjm_ext_lcom3");
+		lcomCriterion.setObjective(RankingCriterion.MIN);
+		// Coupling
+		RankingCriterion couplingCriterion = new RankingCriterion();
+		couplingCriterion.setName("entryClass_ckjm_ext_ce");
+		couplingCriterion.setObjective(RankingCriterion.MIN);
 
-		// Set ranking criteria
-		List<RankingCriterion> rankingCriteria = Arrays.asList(
-			RankingCriterionBuilder
-				.rankingCriterion()
-				.withName("luceneScore")
-				.withObjective(RankingCriterion.MAX)
-				.build()
-		);
-
-		queryParams.setRankingCriteria(rankingCriteria);
+		queryParams.setRankingCriteria(Arrays.asList(
+			fsCriterion,
+			performanceCriterion,
+			lcomCriterion,
+			couplingCriterion
+		));
 
 		// Getting Test-driven result.
 		CandidateSearchResponse response = candidateSearchClient.getResults(jobId, queryParams);
 
 		CandidateListResult result = response.getCandidates();
 
-		result.getCandidates().stream().sorted(new SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
-			logger.info("Rank " + getRank(doc.getRanking(), queryParams.getRankingStrategy(), false) + "/"
-				+ getRank(doc.getRanking(), queryParams.getRankingStrategy(), true) + ": " + doc.getFQName() + " "
-				+ doc.getUri() + ". Safe ranking criteria ? "
-				+ doc.getSafeRankingCriteria().get(queryParams.getRankingStrategy()) + " . Metrics: "
-				+ prettify(doc.getMetrics(), queryParams.getRankingCriteria()) + ". Artifact Info = "
-				+ ToStringBuilder.reflectionToString(doc.getArtifactInfo()));
-		});
-
-		logger.info("Total size " + result.getTotal());
-
 		this.sendResult(
-			this.handleSearchResult(result, queryParams, "Test-driven search"),
+			this.handleTestDrivenSearchResult(result, queryParams, jobId),
 			recipient,
 			"Test-driven search"
 		);
@@ -238,8 +247,14 @@ public class SocoraRequester {
 		queryParams.setContent(true);
 
 		// FILTERS
-		queryParams.setFilters(Arrays.asList(Filters.HASH_CODE_CLONE_FILTER, Filters.NO_ABSTRACT_CLASS_FILTER,
-			Filters.NO_INTERFACE_FILTER, Filters.LATEST_VERSION_FILTER, Filters.FUNCTIONAL_SUFFICIENCY_FILTER));
+		queryParams.setFilters(Arrays.asList(
+			Filters.HASH_CODE_CLONE_FILTER,
+			Filters.NO_ABSTRACT_CLASS_FILTER,
+			Filters.NO_INTERFACE_FILTER,
+			Filters.LATEST_VERSION_FILTER,
+			Filters.FUNCTIONAL_SUFFICIENCY_FILTER
+		));
+
 		request.setQueryParams(queryParams);
 		// no test-driven search
 		request.setTestDrivenSearch(Boolean.FALSE);
@@ -248,7 +263,7 @@ public class SocoraRequester {
 		queryParams.setRankingStrategy(Rankings.SINGLE_OBJECTIVE);
 
 		// set ranking criteria
-		List<RankingCriterion> rankingCriteria = Arrays.asList(
+		List<RankingCriterion> rankingCriteria = Collections.singletonList(
 			// textual score (Lucene/SolR)
 			RankingCriterionBuilder
 				.rankingCriterion()
@@ -264,40 +279,91 @@ public class SocoraRequester {
 		CandidateListResult result = response.getCandidates();
 
 		this.sendResult(
-			this.handleSearchResult(result, queryParams, "Textual search"),
+			this.handleTextualSearchResult(result, queryParams),
 			recipient,
 			"Textual search"
 		);
 	}
 
 	/**
-	 * Handles the result transforming it to human-readable format.
+	 * Handles the result of a test-driven search by transforming it into human-readable format.
 	 *
 	 * @param result to be transformed into human-readable format.
 	 * @param queryParams to show more data.
 	 *
 	 * @return result in a human-readable format.
 	 * */
-	private String handleSearchResult(CandidateListResult result, QueryParams queryParams, String searchType) {
+	private String handleTestDrivenSearchResult(CandidateListResult result, QueryParams queryParams, String jobId) {
 		StrBuilder strBuilder = new StrBuilder();
-		strBuilder.appendln(String.format("Similar components - %s result", searchType));
-		strBuilder.appendln(Strings.repeat("=", String.format("Similar components - %s result", searchType).length()));
+		strBuilder.appendln("Similar components - Test-driven search result");
+		strBuilder.appendln(Strings.repeat("=", "Similar components - Test-driven search result".length()));
 
+		// If the searchType is test-driven, we add a link to SOCORA with jobId
+		strBuilder.appendNewLine();
+		strBuilder.appendln("In the following link you can visualize the result in SOCORA:");
+		strBuilder.appendln(String.format("\thttp://socora.merobase.com/socora/app/index.html#?result_hash=%s", jobId));
+		strBuilder.appendNewLine();
+
+		this.extractTestDrivenSearchCandidates(result, queryParams, strBuilder);
+
+		strBuilder.appendln(Strings.repeat("=", "Similar components - Test-driven search result".length()));
+
+		return strBuilder.toString();
+	}
+
+	/**
+	 * Handles the result of a textual search by transforming it into human-readable format.
+	 *
+	 * @param result to be transformed into human-readable format.
+	 * @param queryParams to show more data.
+	 *
+	 * @return result in a human-readable format.
+	 * */
+	private String handleTextualSearchResult(CandidateListResult result, QueryParams queryParams) {
+		StrBuilder strBuilder = new StrBuilder();
+		strBuilder.appendln("Similar components - Textual search result");
+		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
+
+		this.extractTextSearchCandidates(result, queryParams, strBuilder);
+
+		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
+
+		return strBuilder.toString();
+	}
+
+	/**
+	 * Transforms result into a human-readable format for test-driven search result.
+	 * */
+	private void extractTestDrivenSearchCandidates(CandidateListResult result, QueryParams queryParams, StrBuilder strBuilder) {
+		result.getCandidates().forEach(doc -> {
+			strBuilder.appendln(String.format("Component: %s", doc.getArtifactInfo().getName()));
+			strBuilder.appendln(String.format("\tFQ Name: %s", doc.getFQName()));
+			strBuilder.appendln("\tMetrics:");
+			strBuilder.append(String.format("\t\t%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
+			strBuilder.appendln("\tDetails:");
+			strBuilder.appendln(String.format("\t%s", doc.getArtifactInfo().getDescription()));
+			strBuilder.appendln(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
+			strBuilder.appendln(String.format("\tVersion: %s", doc.getVersion()));
+			strBuilder.appendNewLine();
+		});
+	}
+
+	/**
+	 * Transforms result into a human-readable format for textual search result.
+	 * */
+	private void extractTextSearchCandidates(CandidateListResult result, QueryParams queryParams, StrBuilder strBuilder) {
 		result.getCandidates().stream().sorted(new SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
 			strBuilder.appendln(String.format("Component: %s", doc.getArtifactInfo().getName()));
 			strBuilder.appendln(String.format("\tFQ Name: %s", doc.getFQName()));
 			strBuilder.appendln(String.format("\tRank: %s/%s", getRank(doc.getRanking(), queryParams.getRankingStrategy(), false), getRank(doc.getRanking(), queryParams.getRankingStrategy(), true)));
-			strBuilder.appendln(String.format("\tMetrics:"));
-			strBuilder.appendln(String.format("\t\t%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
-			strBuilder.appendln(String.format("\tDetails:"));
+			strBuilder.appendln("\tMetrics:");
+			strBuilder.append(String.format("%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
+			strBuilder.appendln("\tDetails:");
 			strBuilder.appendln(String.format("\t%s", doc.getArtifactInfo().getDescription()));
 			strBuilder.appendln(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
 			strBuilder.appendln(String.format("\tVersion: %s", doc.getVersion()));
+			strBuilder.appendNewLine();
 		});
-
-		strBuilder.appendln(Strings.repeat("=", String.format("Similar components - %s result", searchType).length()));
-
-		return strBuilder.toString();
 	}
 
 	/**
@@ -345,17 +411,14 @@ public class SocoraRequester {
 	}
 
 	private static String prettify(Map<String, Double> metrics, List<RankingCriterion> criteria) {
-		StringBuffer sb = new StringBuffer();
-
+		StrBuilder sb = new StrBuilder();
 		for (String key : metrics.keySet()) {
 			for (RankingCriterion criterion : criteria) {
 				if (StringUtils.equals(criterion.getName(), key)) {
-					sb.append(" ");
-					sb.append(key + " = " + metrics.get(key));
+					sb.appendln(String.format("\t\t%s = %s", key, metrics.get(key)));
 				}
 			}
 		}
-
 		return sb.toString();
 	}
 
