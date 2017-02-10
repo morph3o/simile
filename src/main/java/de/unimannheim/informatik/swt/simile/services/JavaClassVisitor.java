@@ -31,11 +31,15 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class JavaClassVisitor extends VoidVisitorAdapter {
+
+	private static final Logger logger = LoggerFactory.getLogger(JavaClassVisitor.class);
 
 	@Getter
 	private ClassOrInterfaceDeclaration classObj;
@@ -44,6 +48,11 @@ public class JavaClassVisitor extends VoidVisitorAdapter {
 	@Getter
 	private List<String> testClasses = new ArrayList<>();
 
+	/**
+	 * If the node visited is a Java class, it checks if it contains
+	 * annotation <code>@Test</code>. If true, it is added to test class
+	 * list.
+	 * */
 	@Override
 	public void visit(ClassOrInterfaceDeclaration n, Object arg) {
 		super.visit(n, arg);
@@ -53,10 +62,14 @@ public class JavaClassVisitor extends VoidVisitorAdapter {
 		}
 	}
 
+	/**
+	 * If the node visited is a method, it is added into <code>methods</code>
+	 * list.
+	 * */
 	@Override
 	public void visit(MethodDeclaration n, Object arg) {
 		super.visit(n, arg);
-		System.out.println(String.format("L[%s] - %s", n.getBegin().get(), n.getDeclarationAsString()));
+		logger.debug(String.format("L[%s] - %s", n.getBegin().get(), n.getDeclarationAsString()));
 		methods.add(n);
 	}
 
