@@ -54,15 +54,19 @@ public class SocoraRequester {
 	public static String INTERFACE_DRIVEN_SEARCH = "INTERFACE_DRIVEN_SEARCH";
 	public static String KEYWORD_SEARCH = "KEYWORD_SEARCH";
 
-	private static final Logger LOG = LoggerFactory.getLogger(SocoraRequester.class);
+	private static final Logger logger = LoggerFactory.getLogger(SocoraRequester.class);
 
 	private static String baseURI = "http://socora.merobase.com/socora";
 
 	private static String user = "socora";
 	private static String pass = "d3fudj983r223dhs23";
 
+	private final EmailSender emailSender;
+
 	@Autowired
-	private EmailSender emailSender;
+	public SocoraRequester(EmailSender emailSender) {
+		this.emailSender = emailSender;
+	}
 
 	public void searchComponent(String query, String searchType, String recipient) throws IOException, InterruptedException {
 		Validate.notBlank(query, "Query parameter is required and cannot be blank");
@@ -71,68 +75,151 @@ public class SocoraRequester {
 			StringUtils.isBlank(searchType)) {
 			this.textualSearchComponent(query, recipient);
 		} else if (StringUtils.compare(searchType, TEST_DRIVEN_SEARCH) == 0) {
-			this.testDrivenSearchComponent(query);
+			this.testDrivenSearchComponent(query, recipient);
 		} else {
 			this.textualSearchComponent(query, recipient);
 		}
 	}
 
-	private void testDrivenSearchComponent(String testClass) throws IOException, InterruptedException {
-		// create client
+	/**
+	 * In charge of sending the test class to SOCORA to search for components.
+	 *
+	 * @param testClassSourceQuery which is sent to SOCORA to search for components.
+	 * @param recipient (email) where the result will be sent.
+	 * */
+	private void testDrivenSearchComponent(String testClassSourceQuery, String recipient) throws IOException, InterruptedException {
+		// Create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
-		// search request
+		// Search request
 		CandidateSearchRequest request = new CandidateSearchRequest();
 
-		// maximum no. of candidates to retrieve
-		int maxResults = 10;
-
-		//
-		String testClassSourceQuery = testClass;
+		// Maximum no. of candidates to retrieve
+		int maxResults = 400;
 
 		request.setInput(testClassSourceQuery);
 		QueryParams queryParams = new QueryParams();
 		queryParams.setRows(maxResults);
 
 		// inclusions
-		queryParams.setArtifactInformation(true/* maven metadata */);
-		queryParams.setContent(true/* source code */);
+		queryParams.setArtifactInformation(true);
+		queryParams.setContent(true);
 
 		// FILTERS
-		queryParams.setFilters(Arrays.asList(Filters.HASH_CODE_CLONE_FILTER, Filters.NO_ABSTRACT_CLASS_FILTER,
-			Filters.NO_INTERFACE_FILTER, Filters.LATEST_VERSION_FILTER, Filters.FUNCTIONAL_SUFFICIENCY_FILTER));
+		queryParams.setFilters(Arrays.asList(
+			Filters.HASH_CODE_CLONE_FILTER,
+			Filters.NO_ABSTRACT_CLASS_FILTER,
+			Filters.NO_INTERFACE_FILTER,
+			Filters.LATEST_VERSION_FILTER,
+			Filters.FUNCTIONAL_SUFFICIENCY_FILTER
+		));
+
 		request.setQueryParams(queryParams);
-		// MUST be set to true for test-driven search
+
 		request.setTestDrivenSearch(Boolean.TRUE);
 
-		// set ranking
+		// Set ranking
 		queryParams.setRankingStrategy(Rankings.SINGLE_OBJECTIVE);
 
-		// set ranking criteria
+		// Set ranking criteria
 		List<RankingCriterion> rankingCriteria = Arrays.asList(
-			// textual score (Lucene/SolR)
-			RankingCriterionBuilder.rankingCriterion().withName("luceneScore").withObjective(RankingCriterion.MAX)
-				.build());
+			RankingCriterionBuilder
+				.rankingCriterion()
+				.withName("luceneScore")
+				.withObjective(RankingCriterion.MAX)
+				.build()
+		);
 
 		queryParams.setRankingCriteria(rankingCriteria);
 
 		CandidateSearchResponse response = candidateSearchClient.search(request);
 
-		// response, here the returned jobId of the TDS job is important!
+		// JobId of the test-driven search, which is used to check the status of the job.
 		String jobId = response.getJobId();
 
-		// now TDS is running, poll job status, wait until finished (NOTE: do
-		// something useful here)
+		// In order to retrieve the result, we need to check the status.
 		JobStatus jobStatus = null;
-		while (jobStatus == null || jobStatus.getStatusType() == JobStatusType.RUNNING) {
-			//
+		while (jobStatus == null || jobStatus.getStatusType() != JobStatusType.FINISHED) {
 			jobStatus = candidateSearchClient.getJobStatus(jobId);
-
-			// sleep
+			logger.info("Status of jobId " + jobId + " is " + jobStatus.getStatusType().name());
 			Thread.sleep(30 * 1000L);
 		}
+
+		// Once the search is FINISHED, we retrieve the result with the candidates.
+		if(jobStatus.getStatusType() == JobStatusType.FINISHED)
+			getTextualSearchResult(jobId, recipient);
 	}
 
+	/**
+	 * In charge of fetching the result of a job with given id, handle it and send the result to the recipient.
+	 *
+	 * @param jobId of the job to fetch the result.
+	 * @param recipient (email) to where we will send the result.
+	 * */
+	private void getTextualSearchResult(String jobId, String recipient) throws IOException {
+		// Create client
+		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
+
+		// Successful tds candidates
+		QueryParams queryParams = new QueryParams();
+		queryParams.setRows(2000);
+
+		// Inclusions
+		queryParams.setArtifactInformation(true);
+		queryParams.setContent(true);
+
+		// FILTERS
+		queryParams.setFilters(Arrays.asList(
+			Filters.HASH_CODE_CLONE_FILTER,
+			Filters.NO_ABSTRACT_CLASS_FILTER,
+			Filters.NO_INTERFACE_FILTER,
+			Filters.LATEST_VERSION_FILTER,
+			Filters.FUNCTIONAL_SUFFICIENCY_FILTER
+		));
+
+		// Set ranking criteria
+		queryParams.setRankingStrategy(Rankings.SINGLE_OBJECTIVE);
+
+		// Set ranking criteria
+		List<RankingCriterion> rankingCriteria = Arrays.asList(
+			RankingCriterionBuilder
+				.rankingCriterion()
+				.withName("luceneScore")
+				.withObjective(RankingCriterion.MAX)
+				.build()
+		);
+
+		queryParams.setRankingCriteria(rankingCriteria);
+
+		// Getting Test-driven result.
+		CandidateSearchResponse response = candidateSearchClient.getResults(jobId, queryParams);
+
+		CandidateListResult result = response.getCandidates();
+
+		result.getCandidates().stream().sorted(new SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
+			logger.info("Rank " + getRank(doc.getRanking(), queryParams.getRankingStrategy(), false) + "/"
+				+ getRank(doc.getRanking(), queryParams.getRankingStrategy(), true) + ": " + doc.getFQName() + " "
+				+ doc.getUri() + ". Safe ranking criteria ? "
+				+ doc.getSafeRankingCriteria().get(queryParams.getRankingStrategy()) + " . Metrics: "
+				+ prettify(doc.getMetrics(), queryParams.getRankingCriteria()) + ". Artifact Info = "
+				+ ToStringBuilder.reflectionToString(doc.getArtifactInfo()));
+		});
+
+		logger.info("Total size " + result.getTotal());
+
+		this.sendResult(
+			this.handleSearchResult(result, queryParams, "Test-driven search"),
+			recipient,
+			"Test-driven search"
+		);
+	}
+
+	/**
+	 * In charge of making the request to SOCORA using textual search. The result is sent to the recipient.
+	 *
+	 * @param method in MQL format that will be sent to SOCORA.
+	 * @param recipient (email) to which the result will be sent.
+	 * */
 	private void textualSearchComponent(String method, String recipient) throws IOException {
 		// create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
@@ -140,13 +227,9 @@ public class SocoraRequester {
 		// search request
 		CandidateSearchRequest request = new CandidateSearchRequest();
 
-		//
 		int maxResults = 10;
 
-		// can be one of: JUnit test class, MQL interface query, keyword query
-		String testClassSourceQuery = method;
-
-		request.setInput(testClassSourceQuery);
+		request.setInput(method);
 		QueryParams queryParams = new QueryParams();
 		queryParams.setRows(maxResults);
 
@@ -167,8 +250,12 @@ public class SocoraRequester {
 		// set ranking criteria
 		List<RankingCriterion> rankingCriteria = Arrays.asList(
 			// textual score (Lucene/SolR)
-			RankingCriterionBuilder.rankingCriterion().withName("luceneScore").withObjective(RankingCriterion.MAX)
-				.build());
+			RankingCriterionBuilder
+				.rankingCriterion()
+				.withName("luceneScore")
+				.withObjective(RankingCriterion.MAX)
+				.build()
+		);
 
 		queryParams.setRankingCriteria(rankingCriteria);
 
@@ -176,27 +263,27 @@ public class SocoraRequester {
 
 		CandidateListResult result = response.getCandidates();
 
+		this.sendResult(
+			this.handleSearchResult(result, queryParams, "Textual search"),
+			recipient,
+			"Textual search"
+		);
+	}
+
+	/**
+	 * Handles the result transforming it to human-readable format.
+	 *
+	 * @param result to be transformed into human-readable format.
+	 * @param queryParams to show more data.
+	 *
+	 * @return result in a human-readable format.
+	 * */
+	private String handleSearchResult(CandidateListResult result, QueryParams queryParams, String searchType) {
 		StrBuilder strBuilder = new StrBuilder();
-		strBuilder.appendln("Similar components - Textual search result");
-		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
+		strBuilder.appendln(String.format("Similar components - %s result", searchType));
+		strBuilder.appendln(Strings.repeat("=", String.format("Similar components - %s result", searchType).length()));
 
-		// all rows
-		result.getCandidates().stream().sorted(new SocoraRequester.SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
-			LOG.info("Rank " + getRank(doc.getRanking(), queryParams.getRankingStrategy(), false) + "/"
-				+ getRank(doc.getRanking(), queryParams.getRankingStrategy(), true) + ": " + doc.getFQName() + " "
-				+ doc.getUri() + ". Safe ranking criteria ? "
-				+ doc.getSafeRankingCriteria().get(queryParams.getRankingStrategy()) + " . Metrics: "
-				+ prettify(doc.getMetrics(), queryParams.getRankingCriteria()) + ". Artifact Info = "
-				+ ToStringBuilder.reflectionToString(doc.getArtifactInfo()));
-			LOG.info(String.format("Component: %s", doc.getArtifactInfo().getName()));
-			LOG.info(String.format("\tFQ Name: %s", doc.getFQName()));
-			LOG.info(String.format("\tRank: %s/%s", getRank(doc.getRanking(), queryParams.getRankingStrategy(), false), getRank(doc.getRanking(), queryParams.getRankingStrategy(), true)));
-			LOG.info(String.format("\tMetrics:"));
-			LOG.info(String.format("\t\t%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
-			LOG.info(String.format("\tDetails: \n%s", doc.getArtifactInfo().getDescription()));
-			LOG.info(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
-			LOG.info(String.format("\tVersion: %s", doc.getVersion()));
-
+		result.getCandidates().stream().sorted(new SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
 			strBuilder.appendln(String.format("Component: %s", doc.getArtifactInfo().getName()));
 			strBuilder.appendln(String.format("\tFQ Name: %s", doc.getFQName()));
 			strBuilder.appendln(String.format("\tRank: %s/%s", getRank(doc.getRanking(), queryParams.getRankingStrategy(), false), getRank(doc.getRanking(), queryParams.getRankingStrategy(), true)));
@@ -206,13 +293,21 @@ public class SocoraRequester {
 			strBuilder.appendln(String.format("\t%s", doc.getArtifactInfo().getDescription()));
 			strBuilder.appendln(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
 			strBuilder.appendln(String.format("\tVersion: %s", doc.getVersion()));
-
-			// strBuilder.append(String.format("- %s \n", ToStringBuilder.reflectionToString(doc.getArtifactInfo())));
 		});
-		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
-		LOG.debug("Total size " + result.getTotal());
 
-		emailSender.sendEmail(recipient, "Feedback from Simile - Textual Search", strBuilder.toString());
+		strBuilder.appendln(Strings.repeat("=", String.format("Similar components - %s result", searchType).length()));
+
+		return strBuilder.toString();
+	}
+
+	/**
+	 * Sends the result of a search to the email.
+	 *
+	 * @param result which will be sent.
+	 * @param email to which the result will be sent.
+	 * */
+	private void sendResult(String result, String email, String searchType) {
+		emailSender.sendEmail(email, String.format("Feedback from Simile - %s", searchType), result);
 	}
 
 	/**
