@@ -36,6 +36,7 @@ nbdist/
 *.jar
 !libs/socora-engine-client-0.0.1-SNAPSHOT.jar
 !libs/socora-engine-core-0.0.1-SNAPSHOT.jar
+!libs/JavaPrettify-1.2.1.jar
 *.war
 *.ear
 
