@@ -33,27 +33,28 @@ import com.github.javaparser.ast.body.Parameter;
 import com.google.common.base.Strings;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.text.StrBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 
 public class JavaClassHandler implements FileHandler {
 
 	private static final Logger logger = LoggerFactory.getLogger(JavaClassHandler.class);
 
-	@Getter
 	private List<String> methods = new ArrayList<>();
 	@Getter
 	private List<String> testClasses = new ArrayList<>();
+	@Getter
+	private Map<String, List<String>> classes = new HashMap<>();
 
 	/**
 	 * Handles the current Java class and for each method it contains,
 	 * it transforms the method into Merobase Query Language format.
-	 * */
+	 */
 	@Override
 	public void handle(int level, String path, File file) {
 		logger.debug(path);
@@ -61,17 +62,53 @@ public class JavaClassHandler implements FileHandler {
 		try {
 			JavaClassVisitor jcv = new JavaClassVisitor();
 			jcv.visit(JavaParser.parse(file), null);
-			jcv.getMethods().forEach(method -> methods.add(this.getMQLNotation(jcv.getClassObj().getNameAsString(), method.getNameAsString(), method.getParameters(), method.getType().toString())));
-			testClasses.addAll(jcv.getTestClasses());
+			jcv.getMethods().forEach(method -> methods.add(this.getMethodMQLNotation(method.getNameAsString(), method.getParameters(), method.getType().toString())));
+			classes.put(jcv.getClassObj().getNameAsString(), methods);
+			methods = new ArrayList<>();
+			if(jcv.getTestClasses().size() > 0)
+				testClasses.addAll(jcv.getTestClasses());
 		} catch (IOException e) {
 			new RuntimeException(e);
 		}
 	}
 
-	private String getMQLNotation(String classname, String methodName, NodeList<Parameter> params, String returnType) {
+	private String getMethodMQLNotation(String methodName, NodeList<Parameter> params, String returnType) {
 		List<String> paramTypes = new ArrayList<>();
 		params.forEach(param -> paramTypes.add(param.getType().toString()));
-		logger.debug(String.format("%s(%s(%s):%s;)", classname, methodName, StringUtils.join(paramTypes, ','), returnType));
-		return String.format("%s(%s(%s):%s;)", classname, methodName, StringUtils.join(paramTypes, ','), returnType);
+		logger.debug(
+			String.format("%s(%s):%s", methodName, StringUtils.join(paramTypes, ','), returnType)
+		);
+		return String.format("%s(%s):%s", methodName, StringUtils.join(paramTypes, ','), returnType);
+	}
+
+	/**
+	 * Returns the classes and the methods it cotains in MQL notation.
+	 *
+	 * <p>For example for the following class:
+	 * <pre>
+	 * public class TestClass {
+	 * 	public String methodOne(int param){
+	 * 	}
+	 * }
+	 * </pre>
+	 * <p> This method will return:
+	 * <pre>
+	 * TestClass(methodOne(int):String;)
+	 * </pre>
+	 * */
+	public List<String> getClassesMQLNotation() {
+		List<String> classesMQLNotation = new ArrayList<>();
+		if (classes.size() > 0) {
+			classes.forEach((c, ms) -> {
+				StrBuilder strBuilder = new StrBuilder();
+				strBuilder.append(String.format("%s(", c));
+				strBuilder.append(StringUtils.join(ms, ';'));
+				strBuilder.append(String.format(";)"));
+				logger.debug(strBuilder.toString());
+				classesMQLNotation.add(strBuilder.toString());
+			});
+			return classesMQLNotation;
+		}
+		return Collections.emptyList();
 	}
 }

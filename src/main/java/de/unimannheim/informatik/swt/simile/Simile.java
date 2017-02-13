@@ -64,14 +64,15 @@ public class Simile {
 		JavaClassHandler jch2 = new JavaClassHandler();
 		new DirectoryExplorer(jch2, new JavaClassFilter()).explore(testDir);
 
-		logger.info(String.format("Methods found in project: %s", jch.getMethods().size()));
 		logger.info(String.format("Test classes found in project: %s", jch2.getTestClasses().size()));
 
 		logger.info(String.format("Test class to search"));
 		logger.info(Strings.repeat("=", "Test class to search".length()));
 
-		socoraRequester.searchComponent(jch.getMethods().get(0), SocoraRequester.INTERFACE_DRIVEN_SEARCH, recipient);
-		socoraRequester.searchComponent(jch2.getTestClasses().get(0), SocoraRequester.TEST_DRIVEN_SEARCH, recipient);
+		jch.getClassesMQLNotation().forEach(c -> logger.info(String.format("\n%s")) );
+
+		// socoraRequester.searchComponent(jch.getMethods().get(0), SocoraRequester.INTERFACE_DRIVEN_SEARCH, recipient);
+		// socoraRequester.searchComponent(jch2.getTestClasses().get(0), SocoraRequester.TEST_DRIVEN_SEARCH, recipient);
 	}
 
 }
