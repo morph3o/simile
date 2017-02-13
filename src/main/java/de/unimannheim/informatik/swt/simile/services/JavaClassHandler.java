@@ -47,7 +47,7 @@ public class JavaClassHandler implements FileHandler {
 
 	private List<String> methods = new ArrayList<>();
 	@Getter
-	private List<String> testClasses = new ArrayList<>();
+	private List<String> testClassesCode = new ArrayList<>();
 	@Getter
 	private Map<String, List<String>> classes = new HashMap<>();
 
@@ -66,7 +66,7 @@ public class JavaClassHandler implements FileHandler {
 			classes.put(jcv.getClassObj().getNameAsString(), methods);
 			methods = new ArrayList<>();
 			if(jcv.getTestClasses().size() > 0)
-				testClasses.addAll(jcv.getTestClasses());
+				testClassesCode.addAll(jcv.getTestClasses());
 		} catch (IOException e) {
 			new RuntimeException(e);
 		}

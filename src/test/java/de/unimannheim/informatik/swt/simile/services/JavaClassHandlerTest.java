@@ -69,7 +69,7 @@ public class JavaClassHandlerTest {
 	public void getTestClasses() throws Exception {
 		JavaClassHandler jch = new JavaClassHandler();
 		jch.handle(1, this.testClass.getAbsolutePath(), this.testClass);
-		assertThat(jch.getTestClasses().size()).isEqualTo(1);
+		assertThat(jch.getTestClassesCode().size()).isEqualTo(1);
 	}
 
 	@Test

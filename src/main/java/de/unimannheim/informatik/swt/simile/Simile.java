@@ -29,6 +29,7 @@ package de.unimannheim.informatik.swt.simile;
 
 import com.google.common.base.Strings;
 import de.unimannheim.informatik.swt.simile.services.*;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
 
 @Service
 public class Simile {
@@ -57,22 +59,44 @@ public class Simile {
 		cloner.cloneRepository();
 
 		File maintDir = new File(String.format("%s/src/main", folder));
-		JavaClassHandler jch = new JavaClassHandler();
-		new DirectoryExplorer(jch, new JavaClassFilter()).explore(maintDir);
+		JavaClassHandler classes = new JavaClassHandler();
+		new DirectoryExplorer(classes, new JavaClassFilter()).explore(maintDir);
 
 		File testDir = new File(String.format("%s/src/test", folder));
-		JavaClassHandler jch2 = new JavaClassHandler();
-		new DirectoryExplorer(jch2, new JavaClassFilter()).explore(testDir);
+		JavaClassHandler testClasses = new JavaClassHandler();
+		new DirectoryExplorer(testClasses, new JavaClassFilter()).explore(testDir);
 
-		logger.info(String.format("Test classes found in project: %s", jch2.getTestClasses().size()));
+		logger.info(String.format("Classes found in project: %s", classes.getClasses().size()));
+		logger.info(String.format("Test classes found in project: %s", testClasses.getTestClassesCode().size()));
 
-		logger.info(String.format("Test class to search"));
-		logger.info(Strings.repeat("=", "Test class to search".length()));
+		this.makeRequestWithClasses(classes.getClassesMQLNotation(), recipient);
+		this.makeRequestWithTestClasses(testClasses.getTestClassesCode(), recipient);
+	}
 
-		jch.getClassesMQLNotation().forEach(c -> logger.info(String.format("\n%s")) );
+	private void makeRequestWithClasses(List<String> classes, String recipientEmail) {
+		logger.info("Interface-driven Search");
+		logger.info(Strings.repeat("=", "Interface-driven Search".length()));
+		classes.forEach(c -> {
+			try {
+				logger.info(String.format("Class to query: %s", c));
+				socoraRequester.searchComponent(c, SocoraRequester.INTERFACE_DRIVEN_SEARCH, recipientEmail);
+			} catch (Exception ex) {
+				logger.error(ExceptionUtils.getStackTrace(ex));
+			}
+		});
+	}
 
-		// socoraRequester.searchComponent(jch.getMethods().get(0), SocoraRequester.INTERFACE_DRIVEN_SEARCH, recipient);
-		// socoraRequester.searchComponent(jch2.getTestClasses().get(0), SocoraRequester.TEST_DRIVEN_SEARCH, recipient);
+	private void makeRequestWithTestClasses(List<String> testClasses, String recipientEmail) {
+		logger.info("Test-driven Search");
+		logger.info(Strings.repeat("=", "Test-driven Search".length()));
+		testClasses.forEach(tc -> {
+			try {
+				logger.info(String.format("Test Class to query: %s", tc));
+				socoraRequester.searchComponent(tc, SocoraRequester.TEST_DRIVEN_SEARCH, recipientEmail);
+			} catch (Exception ex) {
+				logger.error(ExceptionUtils.getStackTrace(ex));
+			}
+		});
 	}
 
 }

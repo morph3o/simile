@@ -77,8 +77,10 @@ dependencies {
 	compile group: 'javax.mail', name: 'javax.mail-api', version: '1.5.6'
 	compile group: 'com.github.javaparser', name: 'javaparser-core', version: '3.0.0-RC.4'
 	compile group: 'com.google.guava', name: 'guava', version: '20.0'
+	compile group: 'org.freemarker', name: 'freemarker', version: '2.3.23'
 	compile files('libs/socora-engine-client-0.0.1-SNAPSHOT.jar')
 	compile files('libs/socora-engine-core-0.0.1-SNAPSHOT.jar')
+	compile files('libs/JavaPrettify-1.2.1.jar')
 	runtime('org.springframework.boot:spring-boot-devtools')
 	compileOnly('org.projectlombok:lombok')
 	testCompile('org.springframework.boot:spring-boot-starter-test')

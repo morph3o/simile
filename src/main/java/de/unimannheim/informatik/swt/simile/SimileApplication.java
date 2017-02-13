@@ -27,17 +27,26 @@
 
 package de.unimannheim.informatik.swt.simile;
 
+import freemarker.template.Configuration;
+import freemarker.template.TemplateExceptionHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.Bean;
 import org.springframework.scheduling.annotation.AsyncConfigurerSupport;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.concurrent.Executor;
 
 @SpringBootApplication
 @EnableAsync
 public class SimileApplication extends AsyncConfigurerSupport {
+
+	private static final Logger logger = LoggerFactory.getLogger(SimileApplication.class);
 
 	public static void main(String[] args) {
 		SpringApplication.run(SimileApplication.class, args);
@@ -52,5 +61,15 @@ public class SimileApplication extends AsyncConfigurerSupport {
 		executor.setThreadNamePrefix("SIMILE-");
 		executor.initialize();
 		return executor;
+	}
+
+	@Bean
+	public Configuration freeMarkerConfiguration() throws IOException {
+		Configuration cfg = new Configuration(Configuration.VERSION_2_3_23);
+		cfg.setDirectoryForTemplateLoading(new File(getClass().getClassLoader().getResource("templates").getPath()));
+		cfg.setDefaultEncoding("UTF-8");
+		cfg.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
+		cfg.setLogTemplateExceptions(false);
+		return cfg;
 	}
 }

@@ -27,12 +27,16 @@
 
 package de.unimannheim.informatik.swt.simile.services;
 
-import com.google.common.base.Strings;
 import com.merobase.socora.engine.index.repository.candidate.CandidateDocument;
 import com.merobase.socora.engine.index.repository.candidate.CandidateListResult;
 import com.merobase.socora.engine.search.*;
 import com.merobase.socora.engine.search.filter.Filters;
 import com.merobase.socora.engine.search.ranking.Rankings;
+import de.unimannheim.informatik.swt.simile.model.Candidate;
+import de.unimannheim.informatik.swt.simile.util.PrettifyToHtml;
+import freemarker.template.Configuration;
+import freemarker.template.Template;
+import freemarker.template.TemplateException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
 import org.apache.commons.lang3.text.StrBuilder;
@@ -40,8 +44,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import prettify.PrettifyParser;
+import prettify.theme.ThemeDefault;
+import syntaxhighlight.ParseResult;
 
 import java.io.IOException;
+import java.io.StringWriter;
 import java.util.*;
 
 @Service
@@ -58,13 +66,15 @@ public class SocoraRequester {
 	private static String pass = "d3fudj983r223dhs23";
 
 	private final EmailSender emailSender;
+	private final Configuration freeMarker;
 
 	@Autowired
-	public SocoraRequester(EmailSender emailSender) {
+	public SocoraRequester(EmailSender emailSender, Configuration freeMarker) {
 		this.emailSender = emailSender;
+		this.freeMarker = freeMarker;
 	}
 
-	public void searchComponent(String query, String searchType, String recipient) throws IOException, InterruptedException {
+	public void searchComponent(String query, String searchType, String recipient) throws IOException, InterruptedException, TemplateException {
 		Validate.notBlank(query, "Query parameter is required and cannot be blank");
 		if (StringUtils.compare(searchType, INTERFACE_DRIVEN_SEARCH) == 0 ||
 			StringUtils.compare(searchType, KEYWORD_SEARCH) == 0 ||
@@ -83,7 +93,7 @@ public class SocoraRequester {
 	 * @param testClassSourceQuery which is sent to SOCORA to search for components.
 	 * @param recipient (email) where the result will be sent.
 	 * */
-	private void testDrivenSearchComponent(String testClassSourceQuery, String recipient) throws IOException, InterruptedException {
+	private void testDrivenSearchComponent(String testClassSourceQuery, String recipient) throws IOException, InterruptedException, TemplateException {
 		// Create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
@@ -143,7 +153,8 @@ public class SocoraRequester {
 		CandidateSearchResponse response = candidateSearchClient.search(request);
 
 		// JobId of the test-driven search, which is used to check the status of the job.
-		String jobId = response.getJobId();
+		// String jobId = response.getJobId();
+		String jobId = "8e6ebdc8-52ca-4750-865f-169ea8dca83d";
 
 		// In order to retrieve the result, we need to check the status.
 		JobStatus jobStatus = null;
@@ -155,7 +166,7 @@ public class SocoraRequester {
 
 		// Once the search is FINISHED, we retrieve the result with the candidates.
 		if(jobStatus.getStatusType() == JobStatusType.FINISHED)
-			getTestDrivenSearchResult(jobId, recipient);
+			getTestDrivenSearchResult(jobId, recipient, testClassSourceQuery);
 	}
 
 	/**
@@ -164,7 +175,7 @@ public class SocoraRequester {
 	 * @param jobId of the job to fetch the result.
 	 * @param recipient (email) to where we will send the result.
 	 * */
-	private void getTestDrivenSearchResult(String jobId, String recipient) throws IOException {
+	private void getTestDrivenSearchResult(String jobId, String recipient, String testClassQueried) throws IOException, TemplateException {
 		// Create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
@@ -217,7 +228,7 @@ public class SocoraRequester {
 		CandidateListResult result = response.getCandidates();
 
 		this.sendResult(
-			this.handleTestDrivenSearchResult(result, queryParams, jobId),
+			this.processTemplateTestDrivenSearchResult(result, queryParams, jobId, testClassQueried),
 			recipient,
 			"Test-driven search"
 		);
@@ -229,7 +240,7 @@ public class SocoraRequester {
 	 * @param method in MQL format that will be sent to SOCORA.
 	 * @param recipient (email) to which the result will be sent.
 	 * */
-	private void textualSearchComponent(String method, String recipient) throws IOException {
+	private void textualSearchComponent(String method, String recipient) throws IOException, TemplateException {
 		// create client
 		CandidateSearchClient candidateSearchClient = new CandidateSearchClient(baseURI, auth(user, pass));
 
@@ -279,91 +290,90 @@ public class SocoraRequester {
 		CandidateListResult result = response.getCandidates();
 
 		this.sendResult(
-			this.handleTextualSearchResult(result, queryParams),
+			this.processTemplateTextualSearchResult(method, result, queryParams),
 			recipient,
 			"Textual search"
 		);
 	}
 
 	/**
-	 * Handles the result of a test-driven search by transforming it into human-readable format.
+	 * Processes the template using the candidates resulted from test-driven search.
 	 *
-	 * @param result to be transformed into human-readable format.
+	 * @param result from interface-driven search.
 	 * @param queryParams to show more data.
+	 * @param jobId
 	 *
 	 * @return result in a human-readable format.
 	 * */
-	private String handleTestDrivenSearchResult(CandidateListResult result, QueryParams queryParams, String jobId) {
-		StrBuilder strBuilder = new StrBuilder();
-		strBuilder.appendln("Similar components - Test-driven search result");
-		strBuilder.appendln(Strings.repeat("=", "Similar components - Test-driven search result".length()));
+	private String processTemplateTestDrivenSearchResult(CandidateListResult result, QueryParams queryParams, String jobId, String testClassQueried) throws IOException, TemplateException {
+		Template emailTmp = freeMarker.getTemplate("testdrivenResultEmail.ftl");
+		StringWriter stringWriter = new StringWriter();
+		Map<String, Object> root = new HashMap<>();
+		root.put("jobId", jobId);
+		PrettifyParser parser = new PrettifyParser();
+		List<ParseResult> parseResults = parser.parse("java", testClassQueried);
+		root.put("testClass", PrettifyToHtml.toHtml(testClassQueried, parseResults));
+		root.put("candidates", this.extractTestDrivenSearchCandidates(result, queryParams));
+		emailTmp.process(root, stringWriter);
 
-		// If the searchType is test-driven, we add a link to SOCORA with jobId
-		strBuilder.appendNewLine();
-		strBuilder.appendln("In the following link you can visualize the result in SOCORA:");
-		strBuilder.appendln(String.format("\thttp://socora.merobase.com/socora/app/index.html#?result_hash=%s", jobId));
-		strBuilder.appendNewLine();
+		logger.info(String.format("CSS: %s", PrettifyToHtml.toCss(new ThemeDefault())));
+		logger.info(String.format("HTML: %s", PrettifyToHtml.toHtml(testClassQueried, parseResults)));
 
-		this.extractTestDrivenSearchCandidates(result, queryParams, strBuilder);
-
-		strBuilder.appendln(Strings.repeat("=", "Similar components - Test-driven search result".length()));
-
-		return strBuilder.toString();
+		return stringWriter.toString();
 	}
 
 	/**
-	 * Handles the result of a textual search by transforming it into human-readable format.
+	 * Processes the template using the candidates resulted from interface-driven search.
 	 *
-	 * @param result to be transformed into human-readable format.
+	 * @param methodQueried
+	 * @param result from interface-driven search.
 	 * @param queryParams to show more data.
 	 *
 	 * @return result in a human-readable format.
 	 * */
-	private String handleTextualSearchResult(CandidateListResult result, QueryParams queryParams) {
-		StrBuilder strBuilder = new StrBuilder();
-		strBuilder.appendln("Similar components - Textual search result");
-		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
+	private String processTemplateTextualSearchResult(String methodQueried, CandidateListResult result, QueryParams queryParams) throws IOException, TemplateException {
+		Template emailTmp = freeMarker.getTemplate("interfaceResultEmail.ftl");
+		StringWriter stringWriter = new StringWriter();
+		Map<String, Object> root = new HashMap<>();
+		root.put("query", methodQueried);
+		root.put("candidates", this.extractTextSearchCandidates(result, queryParams));
+		emailTmp.process(root, stringWriter);
 
-		this.extractTextSearchCandidates(result, queryParams, strBuilder);
-
-		strBuilder.appendln(Strings.repeat("=", "Similar components - Textual search result".length()));
-
-		return strBuilder.toString();
+		return stringWriter.toString();
 	}
 
 	/**
 	 * Transforms result into a human-readable format for test-driven search result.
 	 * */
-	private void extractTestDrivenSearchCandidates(CandidateListResult result, QueryParams queryParams, StrBuilder strBuilder) {
+	private List<Candidate> extractTestDrivenSearchCandidates(CandidateListResult result, QueryParams queryParams) {
+		List<Candidate> candidates = new ArrayList<>();
 		result.getCandidates().forEach(doc -> {
-			strBuilder.appendln(String.format("Component: %s", doc.getArtifactInfo().getName()));
-			strBuilder.appendln(String.format("\tFQ Name: %s", doc.getFQName()));
-			strBuilder.appendln("\tMetrics:");
-			strBuilder.append(String.format("\t\t%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
-			strBuilder.appendln("\tDetails:");
-			strBuilder.appendln(String.format("\t%s", doc.getArtifactInfo().getDescription()));
-			strBuilder.appendln(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
-			strBuilder.appendln(String.format("\tVersion: %s", doc.getVersion()));
-			strBuilder.appendNewLine();
+			Candidate candidate = new Candidate();
+			candidate.setName(Optional.ofNullable(doc.getArtifactInfo().getName()).orElse(""));
+			candidate.setFqName(Optional.ofNullable(doc.getFQName()).orElse(""));
+			candidate.setMetrics(getMetrics(doc.getMetrics(), queryParams.getRankingCriteria()));
+			candidate.setDescription(Optional.ofNullable(doc.getArtifactInfo().getDescription()).orElse(""));
+			candidate.setVersion(Optional.ofNullable(doc.getVersion()).orElse(""));
+			candidates.add(candidate);
 		});
+		return candidates;
 	}
 
 	/**
 	 * Transforms result into a human-readable format for textual search result.
 	 * */
-	private void extractTextSearchCandidates(CandidateListResult result, QueryParams queryParams, StrBuilder strBuilder) {
+	private List<Candidate> extractTextSearchCandidates(CandidateListResult result, QueryParams queryParams) {
+		List<Candidate> candidates = new ArrayList<>();
 		result.getCandidates().stream().sorted(new SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
-			strBuilder.appendln(String.format("Component: %s", doc.getArtifactInfo().getName()));
-			strBuilder.appendln(String.format("\tFQ Name: %s", doc.getFQName()));
-			strBuilder.appendln(String.format("\tRank: %s/%s", getRank(doc.getRanking(), queryParams.getRankingStrategy(), false), getRank(doc.getRanking(), queryParams.getRankingStrategy(), true)));
-			strBuilder.appendln("\tMetrics:");
-			strBuilder.append(String.format("%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria())));
-			strBuilder.appendln("\tDetails:");
-			strBuilder.appendln(String.format("\t%s", doc.getArtifactInfo().getDescription()));
-			strBuilder.appendln(String.format("\tRepository: %s", doc.getArtifactInfo().getRepository()));
-			strBuilder.appendln(String.format("\tVersion: %s", doc.getVersion()));
-			strBuilder.appendNewLine();
+			Candidate candidate = new Candidate();
+			candidate.setName(Optional.ofNullable(doc.getArtifactInfo().getName()).orElse(""));
+			candidate.setFqName(Optional.ofNullable(doc.getFQName()).orElse(""));
+			candidate.setMetrics(Collections.singletonList(String.format("%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria()))));
+			candidate.setDescription(Optional.ofNullable(doc.getArtifactInfo().getDescription()).orElse(""));
+			candidate.setVersion(Optional.ofNullable(doc.getVersion()).orElse(""));
+			candidates.add(candidate);
 		});
+		return candidates;
 	}
 
 	/**
@@ -420,6 +430,18 @@ public class SocoraRequester {
 			}
 		}
 		return sb.toString();
+	}
+
+	private static List<String> getMetrics(Map<String, Double> metrics, List<RankingCriterion> criteria) {
+		List<String> metricList = new ArrayList<>();
+		for (String key : metrics.keySet()) {
+			for (RankingCriterion criterion : criteria) {
+				if (StringUtils.equals(criterion.getName(), key)) {
+					metricList.add(String.format("\t\t%s = %s", key, metrics.get(key)));
+				}
+			}
+		}
+		return metricList;
 	}
 
 	/**
