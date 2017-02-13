@@ -33,11 +33,15 @@ import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import lombok.Getter;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class JavaMethodVisitor extends VoidVisitorAdapter {
+
+	private static final Logger logger = LoggerFactory.getLogger(JavaMethodVisitor.class);
 
 	@Getter
 	private String name;
@@ -52,7 +56,7 @@ public class JavaMethodVisitor extends VoidVisitorAdapter {
 	@Override
 	public void visit(MethodDeclaration n, Object arg) {
 		super.visit(n, arg);
-		System.out.println(String.format("L[%s] - %s", n.getBegin().get(), n.getDeclarationAsString()));
+		logger.debug(String.format("L[%s] - %s", n.getBegin().get(), n.getDeclarationAsString()));
 		this.name = n.getName().toString();
 		this.returnType = n.getType().toString();
 		n.getParameters().forEach(param -> params.add(param.getType().toString()));
