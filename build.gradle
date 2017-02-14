@@ -80,7 +80,6 @@ dependencies {
 	compile group: 'org.freemarker', name: 'freemarker', version: '2.3.23'
 	compile files('libs/socora-engine-client-0.0.1-SNAPSHOT.jar')
 	compile files('libs/socora-engine-core-0.0.1-SNAPSHOT.jar')
-	compile files('libs/JavaPrettify-1.2.1.jar')
 	runtime('org.springframework.boot:spring-boot-devtools')
 	compileOnly('org.projectlombok:lombok')
 	testCompile('org.springframework.boot:spring-boot-starter-test')

@@ -29,13 +29,8 @@ package de.unimannheim.informatik.swt.simile.model;
 
 import lombok.Data;
 
-import java.util.List;
-
 @Data
-public class Candidate {
-	private String name;
-	private String fqName;
-	private List<Metric> metrics;
-	private String version;
-	private String description;
+public class Metric {
+	private String title;
+	private Double value;
 }

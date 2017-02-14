@@ -33,23 +33,21 @@ import com.merobase.socora.engine.search.*;
 import com.merobase.socora.engine.search.filter.Filters;
 import com.merobase.socora.engine.search.ranking.Rankings;
 import de.unimannheim.informatik.swt.simile.model.Candidate;
-import de.unimannheim.informatik.swt.simile.util.PrettifyToHtml;
+import de.unimannheim.informatik.swt.simile.model.Metric;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Validate;
-import org.apache.commons.lang3.text.StrBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import prettify.PrettifyParser;
-import prettify.theme.ThemeDefault;
-import syntaxhighlight.ParseResult;
 
 import java.io.IOException;
 import java.io.StringWriter;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 
 @Service
@@ -228,7 +226,7 @@ public class SocoraRequester {
 		CandidateListResult result = response.getCandidates();
 
 		this.sendResult(
-			this.processTemplateTestDrivenSearchResult(result, queryParams, jobId, testClassQueried),
+			this.processTemplateTestDrivenSearchResult(result, queryParams, jobId),
 			recipient,
 			"Test-driven search"
 		);
@@ -305,19 +303,16 @@ public class SocoraRequester {
 	 *
 	 * @return result in a human-readable format.
 	 * */
-	private String processTemplateTestDrivenSearchResult(CandidateListResult result, QueryParams queryParams, String jobId, String testClassQueried) throws IOException, TemplateException {
+	private String processTemplateTestDrivenSearchResult(CandidateListResult result, QueryParams queryParams, String jobId) throws IOException, TemplateException {
 		Template emailTmp = freeMarker.getTemplate("testdrivenResultEmail.ftl");
 		StringWriter stringWriter = new StringWriter();
+		List<Candidate> candidates = this.extractSearchCandidates(result, queryParams);
 		Map<String, Object> root = new HashMap<>();
 		root.put("jobId", jobId);
-		PrettifyParser parser = new PrettifyParser();
-		List<ParseResult> parseResults = parser.parse("java", testClassQueried);
-		root.put("testClass", PrettifyToHtml.toHtml(testClassQueried, parseResults));
-		root.put("candidates", this.extractTestDrivenSearchCandidates(result, queryParams));
+		root.put("numMetrics", candidates.get(0).getMetrics().size());
+		root.put("metrics", candidates.get(0).getMetrics());
+		root.put("candidates", candidates);
 		emailTmp.process(root, stringWriter);
-
-		logger.info(String.format("CSS: %s", PrettifyToHtml.toCss(new ThemeDefault())));
-		logger.info(String.format("HTML: %s", PrettifyToHtml.toHtml(testClassQueried, parseResults)));
 
 		return stringWriter.toString();
 	}
@@ -334,41 +329,27 @@ public class SocoraRequester {
 	private String processTemplateTextualSearchResult(String methodQueried, CandidateListResult result, QueryParams queryParams) throws IOException, TemplateException {
 		Template emailTmp = freeMarker.getTemplate("interfaceResultEmail.ftl");
 		StringWriter stringWriter = new StringWriter();
+		List<Candidate> candidates = this.extractSearchCandidates(result, queryParams);
 		Map<String, Object> root = new HashMap<>();
 		root.put("query", methodQueried);
-		root.put("candidates", this.extractTextSearchCandidates(result, queryParams));
+		root.put("numMetrics", candidates.get(0).getMetrics().size());
+		root.put("metrics", candidates.get(0).getMetrics());
+		root.put("candidates", candidates);
 		emailTmp.process(root, stringWriter);
 
 		return stringWriter.toString();
 	}
 
 	/**
-	 * Transforms result into a human-readable format for test-driven search result.
+	 * Transforms result into a human-readable format.
 	 * */
-	private List<Candidate> extractTestDrivenSearchCandidates(CandidateListResult result, QueryParams queryParams) {
+	private List<Candidate> extractSearchCandidates(CandidateListResult result, QueryParams queryParams) {
 		List<Candidate> candidates = new ArrayList<>();
 		result.getCandidates().forEach(doc -> {
 			Candidate candidate = new Candidate();
 			candidate.setName(Optional.ofNullable(doc.getArtifactInfo().getName()).orElse(""));
 			candidate.setFqName(Optional.ofNullable(doc.getFQName()).orElse(""));
-			candidate.setMetrics(getMetrics(doc.getMetrics(), queryParams.getRankingCriteria()));
-			candidate.setDescription(Optional.ofNullable(doc.getArtifactInfo().getDescription()).orElse(""));
-			candidate.setVersion(Optional.ofNullable(doc.getVersion()).orElse(""));
-			candidates.add(candidate);
-		});
-		return candidates;
-	}
-
-	/**
-	 * Transforms result into a human-readable format for textual search result.
-	 * */
-	private List<Candidate> extractTextSearchCandidates(CandidateListResult result, QueryParams queryParams) {
-		List<Candidate> candidates = new ArrayList<>();
-		result.getCandidates().stream().sorted(new SortByRank(queryParams.getRankingStrategy(), true)).forEach(doc -> {
-			Candidate candidate = new Candidate();
-			candidate.setName(Optional.ofNullable(doc.getArtifactInfo().getName()).orElse(""));
-			candidate.setFqName(Optional.ofNullable(doc.getFQName()).orElse(""));
-			candidate.setMetrics(Collections.singletonList(String.format("%s", prettify(doc.getMetrics(), queryParams.getRankingCriteria()))));
+			candidate.setMetrics(extractMetrics(doc.getMetrics(), queryParams.getRankingCriteria()));
 			candidate.setDescription(Optional.ofNullable(doc.getArtifactInfo().getDescription()).orElse(""));
 			candidate.setVersion(Optional.ofNullable(doc.getVersion()).orElse(""));
 			candidates.add(candidate);
@@ -420,28 +401,51 @@ public class SocoraRequester {
 		return auth;
 	}
 
-	private static String prettify(Map<String, Double> metrics, List<RankingCriterion> criteria) {
-		StrBuilder sb = new StrBuilder();
+	private static List<Metric> extractMetrics(Map<String, Double> metrics, List<RankingCriterion> criteria) {
+		List<Metric> metricList = new ArrayList<>();
 		for (String key : metrics.keySet()) {
 			for (RankingCriterion criterion : criteria) {
 				if (StringUtils.equals(criterion.getName(), key)) {
-					sb.appendln(String.format("\t\t%s = %s", key, metrics.get(key)));
-				}
-			}
-		}
-		return sb.toString();
-	}
-
-	private static List<String> getMetrics(Map<String, Double> metrics, List<RankingCriterion> criteria) {
-		List<String> metricList = new ArrayList<>();
-		for (String key : metrics.keySet()) {
-			for (RankingCriterion criterion : criteria) {
-				if (StringUtils.equals(criterion.getName(), key)) {
-					metricList.add(String.format("\t\t%s = %s", key, metrics.get(key)));
+					Metric m = new Metric();
+					m.setTitle(SocoraRequester.getMetricTitle(key));
+					m.setValue(SocoraRequester.round(metrics.get(key), 2));
+					metricList.add(m);
 				}
 			}
 		}
 		return metricList;
+	}
+
+	private static String getMetricTitle(String metricKey) {
+		String metricTitle;
+		switch (metricKey) {
+			case "luceneScore":
+				metricTitle = "Lucene Score";
+				break;
+			case "sf_instruction_leanness":
+				metricTitle = "Leanness default (Instruction)";
+				break;
+			case "jmh_thrpt_score_mean":
+				metricTitle = "Throughput, operations / second";
+				break;
+			case "entryClass_ckjm_ext_lcom3":
+				metricTitle = "Cohesion LCOM3 (entry class)";
+				break;
+			case "entryClass_ckjm_ext_ce":
+				metricTitle = "Efferent Coupling (entry class)";
+				break;
+			default:
+				throw new IllegalArgumentException(String.format("Metric %s is not valid", metricKey));
+		}
+		return metricTitle;
+	}
+
+	private static double round(double value, int places) {
+		if (places < 0) throw new IllegalArgumentException();
+
+		BigDecimal bd = new BigDecimal(value);
+		bd = bd.setScale(places, RoundingMode.HALF_UP);
+		return bd.doubleValue();
 	}
 
 	/**
