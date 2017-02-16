@@ -151,8 +151,7 @@ public class SocoraRequester {
 		CandidateSearchResponse response = candidateSearchClient.search(request);
 
 		// JobId of the test-driven search, which is used to check the status of the job.
-		// String jobId = response.getJobId();
-		String jobId = "8e6ebdc8-52ca-4750-865f-169ea8dca83d";
+		String jobId = response.getJobId();
 
 		// In order to retrieve the result, we need to check the status.
 		JobStatus jobStatus = null;
