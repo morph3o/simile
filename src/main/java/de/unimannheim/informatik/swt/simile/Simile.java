@@ -54,23 +54,25 @@ public class Simile {
 
 	@Async
 	public void searchForComponents(String repo, String branch, String folder, String recipient) throws IOException, InterruptedException {
-		Cloner cloner = new Cloner(repo, branch, folder);
+		new Cloner(repo, branch, folder).cloneRepository();
 
-		cloner.cloneRepository();
+		JavaClassFilter javaClassFilter = new JavaClassFilter();
 
+		// Analyzing src/main directory looking for Classes
 		File maintDir = new File(String.format("%s/src/main", folder));
-		JavaClassHandler classes = new JavaClassHandler();
-		new DirectoryExplorer(classes, new JavaClassFilter()).explore(maintDir);
+		JavaClassHandler javaClassHandler = new JavaClassHandler();
+		new DirectoryExplorer(javaClassHandler, javaClassFilter).explore(maintDir);
 
+		// Analyzing src/test directory looking for test classes
 		File testDir = new File(String.format("%s/src/test", folder));
-		JavaClassHandler testClasses = new JavaClassHandler();
-		new DirectoryExplorer(testClasses, new JavaClassFilter()).explore(testDir);
+		JavaClassHandler testClassHandler = new JavaClassHandler();
+		new DirectoryExplorer(testClassHandler, javaClassFilter).explore(testDir);
 
-		logger.info(String.format("Classes found in project: %s", classes.getClasses().size()));
-		logger.info(String.format("Test classes found in project: %s", testClasses.getTestClassesCode().size()));
+		logger.info(String.format("Classes found in project: %s", javaClassHandler.getClasses().size()));
+		logger.info(String.format("Test classes found in project: %s", testClassHandler.getTestClassesCode().size()));
 
-		this.makeRequestWithClasses(classes.getClassesMQLNotation(), recipient);
-		this.makeRequestWithTestClasses(testClasses.getTestClassesCode(), recipient);
+		this.makeRequestWithClasses(javaClassHandler.getClassesMQLNotation(), recipient);
+		this.makeRequestWithTestClasses(testClassHandler.getTestClassesCode(), recipient);
 	}
 
 	private void makeRequestWithClasses(List<String> classes, String recipientEmail) {

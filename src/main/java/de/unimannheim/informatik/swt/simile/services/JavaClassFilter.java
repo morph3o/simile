@@ -29,8 +29,7 @@ package de.unimannheim.informatik.swt.simile.services;
 
 import java.io.File;
 
-public class JavaClassFilter implements Filter {
-	@Override
+public class JavaClassFilter {
 	public boolean interested(int level, String path, File file) {
 		return path.endsWith(".java");
 	}

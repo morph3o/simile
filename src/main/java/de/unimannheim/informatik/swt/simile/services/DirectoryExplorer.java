@@ -28,20 +28,13 @@
 package de.unimannheim.informatik.swt.simile.services;
 
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 
 import java.io.File;
 
 @RequiredArgsConstructor
 public class DirectoryExplorer {
-	private final FileHandler fileHandler;
-	private final Filter filter;
-	@Setter
-	private File projectDir;
-
-	public void explore() {
-		explore(0, "", this.projectDir);
-	}
+	private final JavaClassHandler fileHandler;
+	private final JavaClassFilter filter;
 
 	public void explore(File root) {
 		explore(0, "", root);

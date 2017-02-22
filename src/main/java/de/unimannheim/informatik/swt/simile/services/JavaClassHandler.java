@@ -41,7 +41,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-public class JavaClassHandler implements FileHandler {
+public class JavaClassHandler {
 
 	private static final Logger logger = LoggerFactory.getLogger(JavaClassHandler.class);
 
@@ -55,7 +55,6 @@ public class JavaClassHandler implements FileHandler {
 	 * Handles the current Java class and for each method it contains,
 	 * it transforms the method into Merobase Query Language format.
 	 */
-	@Override
 	public void handle(int level, String path, File file) {
 		logger.debug(path);
 		logger.debug(Strings.repeat("=", path.length()));
