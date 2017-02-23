@@ -48,7 +48,7 @@
 		<tr>
 			<th class="tg-yw4l" rowspan="2">Component</th>
 			<th class="tg-yw4l" rowspan="2">FQ Name</th>
-			<th class="tg-yw4l" colspan="${numMetrics}">Functional Requirements</th>
+			<th class="tg-yw4l" colspan="${numMetrics}">Metrics</th>
 			<th class="tg-yw4l" rowspan="2">Version</th>
 			<th class="tg-yw4l" rowspan="2">Description</th>
 		</tr>
